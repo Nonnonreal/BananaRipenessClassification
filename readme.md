@@ -1,3 +1,13 @@
+---
+title: Banana Ripeness AI
+emoji: 🍌
+colorFrom: yellow
+colorTo: amber
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🍌 BananaVision AI: ระบบตรวจจับและคัดแยกความสุกของกล้วยบนสายพาน (4 Classes)
 
 ระบบตรวจจับพิกัดและจำแนกระดับความสุกของกล้วยอัตโนมัติจากคลิปวิดีโอบนสายพานลำเลียง (Conveyor Belt) ด้วยสถาปัตยกรรม **2-Stage Deep Learning Pipeline** พร้อมระบบแสดงผลบน **Web Application Dashboard** แบบเรียลไทม์ และระบบส่งออกรายงานสรุปข้อมูลในรูปแบบ CSV
