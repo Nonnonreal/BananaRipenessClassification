@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BananaVision AI - ระบบคัดแยกความสุกของกล้วยบนสายพาน</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Prompt (Thai) & Inter (English/Numbers) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'Inter', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for smooth table and gallery scrolling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(245, 158, 11, 0.5); }
+            50% { border-color: rgba(245, 158, 11, 1); }
+        }
+        .scanning-active {
+            animation: pulse-border 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Toast Notification Container (Replaces alert) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Brand & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center text-slate-900 shadow-sm">
+                    <i class="fa-solid fa-eye text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-base sm:text-lg text-slate-900 leading-tight">BananaVision AI</h1>
+                        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                            Pipeline Ready
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 hidden sm:block">YOLOv8 Detection + Crop &rarr; MobileNetV2 Ripeness Classification</p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="resetAllData()" class="px-3 py-2 text-xs sm:text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span class="hidden md:inline">ล้างข้อมูล</span>
+                </button>
+                <button onclick="exportCSV()" class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv text-base"></i>
+                    <span>ส่งออก CSV</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Pipeline Architecture Stepper -->
+        <section class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Processing Pipeline</div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full md:w-auto flex-1 max-w-4xl">
+                    <!-- Step 1 -->
+                    <div id="step-1" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 transition">
+                        <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-800 truncate">Video Input</div>
+                            <div class="text-[11px] text-slate-500 truncate">คลิปสายพานกล้วย</div>
+                        </div>
+                    </div>
+                    <!-- Step 2 -->
+                    <div id="step-2" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 transition">
+                        <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-800 truncate">YOLOv8 Detect</div>
+                            <div class="text-[11px] text-slate-500 truncate">หาตำแหน่ง & Crop</div>
+                        </div>
+                    </div>
+                    <!-- Step 3 -->
+                    <div id="step-3" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 transition">
+                        <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold shrink-0">3</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-800 truncate">MobileNetV2</div>
+                            <div class="text-[11px] text-slate-500 truncate">จำแนกความสุก</div>
+                        </div>
+                    </div>
+                    <!-- Step 4 -->
+                    <div id="step-4" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 transition">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0">4</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-800 truncate">Output & CSV</div>
+                            <div class="text-[11px] text-slate-500 truncate">ภาพ Crop & รายงาน</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Upper Grid: Video Input/Preview (Left) & Real-time Analytics (Right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Video Input & Live Detection Monitor (7 cols) -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <!-- Card Header with Mode Switcher -->
+                <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-video text-amber-500"></i>
+                        <h2 class="font-semibold text-slate-800 text-sm sm:text-base">วิดีโอสายพาน & การตรวจจับ (Input & Live Preview)</h2>
+                    </div>
+                    <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-medium">
+                        <button id="btn-mode-demo" onclick="switchMode('demo')" class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">
+                            จำลองสายพาน (Demo)
+                        </button>
+                        <button id="btn-mode-upload" onclick="switchMode('upload')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                            อัปโหลดวิดีโอ (.mp4)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Viewport Container -->
+                <div class="p-4 flex-1 flex flex-col justify-between space-y-4">
+                    
+                    <!-- Mode A: Interactive Conveyor Belt Simulation Canvas -->
+                    <div id="demo-viewport" class="relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-800 shadow-inner">
+                        <canvas id="conveyorCanvas" class="w-full h-full block"></canvas>
+                        
+                        <!-- Overlay HUD -->
+                        <div class="absolute top-3 left-3 flex flex-wrap items-center gap-2 pointer-events-none">
+                            <span class="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-[11px] font-mono flex items-center gap-1.5 border border-white/10">
+                                <span id="live-dot" class="w-2 h-2 rounded-full bg-red-500"></span>
+                                <span id="hud-status">STANDBY</span>
+                            </span>
+                            <span class="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-amber-300 text-[11px] font-mono border border-white/10">
+                                YOLOv8n + MobileNetV2
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Mode B: User Video Upload Viewport -->
+                    <div id="upload-viewport" class="hidden w-full">
+                        <!-- Dropzone -->
+                        <label id="upload-dropzone" for="video-file-input" class="flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed border-slate-300 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/30 rounded-xl cursor-pointer transition p-6 text-center">
+                            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-3">
+                                <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์วิดีโอ หรือลากไฟล์มาวางที่นี่</p>
+                            <p class="text-xs text-slate-500 mt-1">รองรับไฟล์ MP4, WebM, MOV (คลิปกล้วยเคลื่อนที่บนสายพาน)</p>
+                            <input id="video-file-input" type="file" accept="video/*" class="hidden" onchange="handleVideoUpload(event)">
+                        </label>
+
+                        <!-- Uploaded Video Player + Overlay Canvas -->
+                        <div id="uploaded-player-wrapper" class="hidden relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-800">
+                            <video id="uploaded-video" class="w-full h-full object-contain" controls playsinline></video>
+                            <canvas id="videoOverlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                            <button onclick="clearUploadedVideo()" class="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg bg-black/70 hover:bg-red-600 text-white text-xs font-medium backdrop-blur-sm transition">
+                                <i class="fa-solid fa-xmark mr-1"></i> เปลี่ยนวิดีโอ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Playback & Detection Controls -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <div class="flex items-center gap-2">
+                            <button id="btn-toggle-run" onclick="toggleProcessing()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-900 font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                                <i id="icon-toggle-run" class="fa-solid fa-play"></i>
+                                <span id="text-toggle-run">เริ่มตรวจจับ (Start Inference)</span>
+                            </button>
+                            <button onclick="triggerManualCapture()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition flex items-center gap-1.5" title="จับภาพและ Crop ทันที">
+                                <i class="fa-solid fa-crop-simple"></i>
+                                <span class="hidden sm:inline">Crop เฟรมนี้</span>
+                            </button>
+                        </div>
+
+                        <!-- Toggle Visual Overlays -->
+                        <div class="flex items-center gap-4 text-xs text-slate-600">
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                <input type="checkbox" id="chk-bbox" checked class="rounded text-amber-500 focus:ring-amber-500">
+                                <span>Bounding Box</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                <input type="checkbox" id="chk-label" checked class="rounded text-amber-500 focus:ring-amber-500">
+                                <span>Label & Score</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Ripeness Summary & Model Parameters (5 cols) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                
+                <!-- Summary KPI Cards -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="font-semibold text-slate-800 text-sm sm:text-base flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-emerald-600"></i>
+                            สรุปผลการคัดแยก (Ripeness Summary)
+                        </h2>
+                        <span class="text-xs font-medium text-slate-400">อัปเดตเรียลไทม์</span>
+                    </div>
+
+                    <!-- Total Counter Banner -->
+                    <div class="p-4 rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 text-white flex items-center justify-between">
+                        <div>
+                            <div class="text-xs text-slate-300">จำนวนกล้วยที่ตรวจพบทั้งหมด</div>
+                            <div class="text-2xl sm:text-3xl font-bold font-mono mt-0.5"><span id="stat-total">0</span> <span class="text-sm font-normal text-slate-300">ผล / หวี</span></div>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-amber-400 text-xl">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                    </div>
+
+                    <!-- 3 Ripeness Stages Breakdown -->
+                    <div class="space-y-3">
+                        <!-- Stage 1: Unripe (ดิบ) -->
+                        <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                            <div class="flex items-center justify-between text-sm mb-1.5">
+                                <div class="flex items-center gap-2 font-medium text-emerald-900">
+                                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                                    <span>ดิบ (Unripe - Green)</span>
+                                </div>
+                                <div class="font-mono font-bold text-emerald-700">
+                                    <span id="stat-unripe">0</span> <span id="pct-unripe" class="text-xs font-normal text-emerald-600">(0%)</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-emerald-200/60 h-2 rounded-full overflow-hidden">
+                                <div id="bar-unripe" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stage 2: Ripe (สุกพอดี) -->
+                        <div class="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+                            <div class="flex items-center justify-between text-sm mb-1.5">
+                                <div class="flex items-center gap-2 font-medium text-amber-900">
+                                    <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+                                    <span>สุกพอดี (Ripe - Yellow)</span>
+                                </div>
+                                <div class="font-mono font-bold text-amber-700">
+                                    <span id="stat-ripe">0</span> <span id="pct-ripe" class="text-xs font-normal text-amber-600">(0%)</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-amber-200/60 h-2 rounded-full overflow-hidden">
+                                <div id="bar-ripe" class="bg-amber-400 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stage 3: Overripe (สุกงอม) -->
+                        <div class="p-3 rounded-xl border border-orange-200 bg-orange-50/50">
+                            <div class="flex items-center justify-between text-sm mb-1.5">
+                                <div class="flex items-center gap-2 font-medium text-orange-900">
+                                    <span class="w-3 h-3 rounded-full bg-orange-600"></span>
+                                    <span>สุกงอม (Overripe - Spotted)</span>
+                                </div>
+                                <div class="font-mono font-bold text-orange-700">
+                                    <span id="stat-overripe">0</span> <span id="pct-overripe" class="text-xs font-normal text-orange-600">(0%)</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-orange-200/60 h-2 rounded-full overflow-hidden">
+                                <div id="bar-overripe" class="bg-orange-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Configuration Card -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+                    <h3 class="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        ตั้งค่าโมเดล (Model Thresholds)
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-600 font-medium">YOLOv8 Confidence Threshold</span>
+                                <span id="conf-val" class="font-mono font-semibold text-indigo-600">0.75</span>
+                            </div>
+                            <input type="range" id="conf-slider" min="0.50" max="0.95" step="0.05" value="0.75" oninput="document.getElementById('conf-val').textContent = parseFloat(this.value).toFixed(2)" class="w-full accent-indigo-600 cursor-pointer">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
+                            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-slate-400">Detection Model</div>
+                                <div class="font-semibold text-slate-700 mt-0.5">YOLOv8s (640x640)</div>
+                            </div>
+                            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-slate-400">Classifier Model</div>
+                                <div class="font-semibold text-slate-700 mt-0.5">MobileNetV2 (224x224)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Bottom Section: Cropped Output Gallery & CSV Data Table -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Section Header with Filter & Tabs -->
+            <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-semibold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-images text-amber-500"></i>
+                        ผลลัพธ์ภาพที่ Crop & วาด Bounding Box (Output Detections)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">แสดงภาพที่ถูก Crop จาก YOLOv8 พร้อมกรอบ Bounding Box และ Label ระดับความสุกจาก MobileNetV2</p>
+                </div>
+
+                <!-- Filter Pills & View Switch -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="stage-filter" onchange="renderOutputs()" class="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-amber-500">
+                        <option value="ALL">ทุกสถานะความสุก (All Stages)</option>
+                        <option value="Unripe">ดิบ (Unripe)</option>
+                        <option value="Ripe">สุกพอดี (Ripe)</option>
+                        <option value="Overripe">สุกงอม (Overripe)</option>
+                    </select>
+
+                    <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-medium">
+                        <button id="tab-gallery" onclick="switchOutputTab('gallery')" class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">
+                            <i class="fa-solid fa-grip mr-1"></i> แกลเลอรีภาพ Crop
+                        </button>
+                        <button id="tab-table" onclick="switchOutputTab('table')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                            <i class="fa-solid fa-table mr-1"></i> ตารางข้อมูล CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 1: Cropped Images Gallery -->
+            <div id="view-gallery" class="p-4 sm:p-5">
+                <div id="empty-gallery-state" class="py-12 text-center">
+                    <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3 text-2xl">
+                        <i class="fa-solid fa-crop"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-slate-700">ยังไม่มีข้อมูลภาพที่ถูก Crop</h3>
+                    <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">กดปุ่ม <span class="font-semibold text-amber-600">"เริ่มตรวจจับ (Start Inference)"</span> ด้านบนเพื่อเริ่มประมวลผลวิดีโอบนสายพาน</p>
+                </div>
+
+                <div id="cropped-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 hidden">
+                    <!-- Dynamic Cropped Cards will be injected here -->
+                </div>
+            </div>
+
+            <!-- Tab 2: CSV Data Preview Table -->
+            <div id="view-table" class="hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                <th class="py-3 px-4">Banana ID</th>
+                                <th class="py-3 px-4">ภาพ Crop</th>
+                                <th class="py-3 px-4">เวลาในคลิป (Timestamp)</th>
+                                <th class="py-3 px-4">ระดับความสุก (MobileNetV2)</th>
+                                <th class="py-3 px-4">ความแม่นยำ (Confidence)</th>
+                                <th class="py-3 px-4">Bounding Box [x, y, w, h]</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csv-table-body" class="divide-y divide-slate-100 text-sm">
+                            <!-- Dynamic Table Rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-table-state" class="py-10 text-center text-xs text-slate-500">
+                    ไม่มีรายการข้อมูลสำหรับส่งออก CSV กรุณารันการตรวจจับก่อน
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <div>BananaVision AI Prototype &bull; ระบบคัดแยกคุณภาพผลผลิตทางการเกษตร</div>
+            <div>Architecture: <span class="font-mono text-slate-700">YOLOv8 (Object Detection) &rarr; Crop &rarr; MobileNetV2 (Classification)</span></div>
+        </div>
+    </footer>
+
+    <!-- Application Logic -->
+    <script>
+        // --- State Management ---
+        let currentMode = 'demo'; // 'demo' or 'upload'
+        let isRunning = false;
+        let animationFrameId = null;
+        let detectionRecords = [];
+        let bananaCounter = 0;
+        let startTime = Date.now();
+        let activeTab = 'gallery';
+
+        // Stage definitions with colors and Thai labels
+        const STAGES = {
+            Unripe: {
+                key: 'Unripe',
+                labelTh: 'ดิบ (Unripe)',
+                badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                hexColor: '#10b981', // Emerald 500
+                bodyColor: '#4ade80',
+                tipColor: '#15803d',
+                spots: false
+            },
+            Ripe: {
+                key: 'Ripe',
+                labelTh: 'สุกพอดี (Ripe)',
+                badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+                hexColor: '#f59e0b', // Amber 500
+                bodyColor: '#facc15',
+                tipColor: '#854d0e',
+                spots: false
+            },
+            Overripe: {
+                key: 'Overripe',
+                labelTh: 'สุกงอม (Overripe)',
+                badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
+                hexColor: '#ea580c', // Orange 600
+                bodyColor: '#eab308',
+                tipColor: '#451a03',
+                spots: true
+            }
+        };
+
+        // --- Toast Notification Helper (No alert()) ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-slate-800 text-white border-slate-700',
+                success: 'bg-emerald-600 text-white border-emerald-500',
+                warning: 'bg-amber-500 text-slate-900 border-amber-400'
+            };
+            const icons = {
+                info: 'fa-circle-info',
+                success: 'fa-circle-check',
+                warning: 'fa-triangle-exclamation'
+            };
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Conveyor Simulation Setup ---
+        const canvas = document.getElementById('conveyorCanvas');
+        const ctx = canvas.getContext('2d');
+        let beltOffset = 0;
+        let simulatedBananas = [];
+        let lastSpawnTime = 0;
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width || 640;
+            canvas.height = rect.height || 360;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        class SimulatedBanana {
+            constructor(canvasWidth, canvasHeight) {
+                const keys = Object.keys(STAGES);
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                this.stage = STAGES[randomKey];
+                this.id = ++bananaCounter;
+                this.confidence = (0.86 + Math.random() * 0.13).toFixed(2); // 0.86 - 0.99
+                this.w = Math.max(95, canvasWidth * 0.16);
+                this.h = Math.max(55, canvasHeight * 0.17);
+                this.x = -this.w - 20;
+                this.y = (canvasHeight * 0.25) + Math.random() * (canvasHeight * 0.45);
+                this.speed = Math.max(1.8, canvasWidth * 0.0032);
+                this.angle = (Math.random() - 0.5) * 0.35;
+                this.captured = false;
+            }
+
+            update() {
+                this.x += this.speed;
+            }
+
+            draw(targetCtx, drawBox = true, drawLabel = true) {
+                targetCtx.save();
+                const cx = this.x + this.w / 2;
+                const cy = this.y + this.h / 2;
+
+                // Draw Stylized Banana Shape
+                targetCtx.translate(cx, cy);
+                targetCtx.rotate(this.angle);
+
+                // Banana body curve
+                targetCtx.beginPath();
+                targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
+                targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
+                targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
+                targetCtx.closePath();
+                targetCtx.fillStyle = this.stage.bodyColor;
+                targetCtx.fill();
+                targetCtx.lineWidth = 2;
+                targetCtx.strokeStyle = this.stage.tipColor;
+                targetCtx.stroke();
+
+                // Stem & Tip
+                targetCtx.fillStyle = this.stage.tipColor;
+                targetCtx.fillRect(-this.w * 0.45, -this.h * 0.2, 6, 6);
+                targetCtx.fillRect(this.w * 0.40, -this.h * 0.18, 5, 5);
+
+                // Brown sugar spots if Overripe
+                if (this.stage.spots) {
+                    targetCtx.fillStyle = '#78350f';
+                    const spotCoords = [[-12, 4], [5, 8], [18, 2], [-2, 11], [10, 4]];
+                    spotCoords.forEach(([sx, sy]) => {
+                        targetCtx.beginPath();
+                        targetCtx.arc(sx, sy, 2.3, 0, Math.PI * 2);
+                        targetCtx.fill();
+                    });
+                }
+
+                targetCtx.restore();
+
+                // Draw YOLOv8 Bounding Box & MobileNetV2 Label
+                const threshold = parseFloat(document.getElementById('conf-slider').value);
+                if (parseFloat(this.confidence) >= threshold) {
+                    if (drawBox) {
+                        targetCtx.save();
+                        targetCtx.strokeStyle = this.stage.hexColor;
+                        targetCtx.lineWidth = 2.5;
+                        targetCtx.strokeRect(this.x, this.y, this.w, this.h);
+
+                        // Subtle translucent fill
+                        targetCtx.fillStyle = this.stage.hexColor + '18';
+                        targetCtx.fillRect(this.x, this.y, this.w, this.h);
+                        targetCtx.restore();
+                    }
+
+                    if (drawLabel) {
+                        targetCtx.save();
+                        const labelText = `#${String(this.id).padStart(2, '0')} ${this.stage.key} ${Math.round(this.confidence * 100)}%`;
+                        targetCtx.font = 'bold 11px Inter, sans-serif';
+                        const textMetrics = targetCtx.measureText(labelText);
+                        const padX = 6;
+                        const tagH = 18;
+                        const tagY = Math.max(2, this.y - tagH);
+
+                        targetCtx.fillStyle = this.stage.hexColor;
+                        targetCtx.fillRect(this.x, tagY, textMetrics.width + padX * 2, tagH);
+
+                        targetCtx.fillStyle = '#0f172a';
+                        targetCtx.fillText(labelText, this.x + padX, tagY + 13);
+                        targetCtx.restore();
+                    }
+                }
+            }
+        }
+
+        function drawConveyorBackground() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Dark industrial conveyor belt base
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, w, h);
+
+            // Belt edge rails
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, w, 18);
+            ctx.fillRect(0, h - 18, w, 18);
+
+            // Moving conveyor slats
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            const spacing = 48;
+            for (let x = (beltOffset % spacing) - spacing; x < w; x += spacing) {
+                ctx.beginPath();
+                ctx.moveTo(x, 18);
+                ctx.lineTo(x, h - 18);
+                ctx.stroke();
+            }
+
+            // Center ROI / Trigger Line (YOLOv8 + MobileNetV2 Crop Zone)
+            const roiX = w * 0.52;
+            ctx.save();
+            ctx.setLineDash([6, 6]);
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(roiX, 18);
+            ctx.lineTo(roiX, h - 18);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.85)';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillText('AUTO-CROP LINE', roiX + 6, 32);
+            ctx.restore();
+        }
+
+        // Crop a specific banana from the canvas with bounding box & label intact
+        function createCroppedSnapshot(banana) {
+            const pad = 16;
+            const cropX = Math.max(0, banana.x - pad);
+            const cropY = Math.max(0, banana.y - pad - 14);
+            const cropW = Math.min(canvas.width - cropX, banana.w + pad * 2);
+            const cropH = Math.min(canvas.height - cropY, banana.h + pad * 2 + 14);
+
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = 240;
+            offCanvas.height = 160;
+            const offCtx = offCanvas.getContext('2d');
+
+            // Copy cropped region from main canvas (which already has bounding box & label drawn)
+            offCtx.drawImage(
+                canvas,
+                cropX, cropY, cropW, cropH,
+                0, 0, offCanvas.width, offCanvas.height
+            );
+
+            return offCanvas.toDataURL('image/png');
+        }
+
+        function recordDetection(banana, imageDataUrl) {
+            const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+            const record = {
+                id: `BN-${String(banana.id).padStart(4, '0')}`,
+                timestamp: `${elapsedSec}s`,
+                stageKey: banana.stage.key,
+                stageLabel: banana.stage.labelTh,
+                badgeClass: banana.stage.badgeClass,
+                confidence: (banana.confidence * 100).toFixed(1),
+                bbox: `[${Math.round(banana.x)}, ${Math.round(banana.y)}, ${Math.round(banana.w)}, ${Math.round(banana.h)}]`,
+                image: imageDataUrl
+            };
+
+            detectionRecords.unshift(record); // Latest first
+            updateDashboardStats();
+            renderOutputs();
+        }
+
+        function animateConveyor(timestamp) {
+            if (!isRunning || currentMode !== 'demo') return;
+
+            beltOffset += 2.2;
+            drawConveyorBackground();
+
+            // Spawn new bananas periodically
+            if (timestamp - lastSpawnTime > 1700) {
+                simulatedBananas.push(new SimulatedBanana(canvas.width, canvas.height));
+                lastSpawnTime = timestamp;
+            }
+
+            const showBox = document.getElementById('chk-bbox').checked;
+            const showLabel = document.getElementById('chk-label').checked;
+            const roiX = canvas.width * 0.52;
+
+            simulatedBananas.forEach((banana) => {
+                banana.update();
+                // Always draw box & label on canvas before capturing snapshot so output has bounding box & label
+                banana.draw(ctx, showBox, showLabel);
+
+                // When crossing the center trigger line, crop & classify
+                if (!banana.captured && (banana.x + banana.w / 2) >= roiX) {
+                    banana.captured = true;
+                    // Ensure bounding box & label are drawn on the cropped output
+                    if (!showBox || !showLabel) {
+                        banana.draw(ctx, true, true);
+                    }
+                    const snapshot = createCroppedSnapshot(banana);
+                    recordDetection(banana, snapshot);
+                    highlightPipelineStep(3);
+                }
+            });
+
+            // Remove off-screen bananas
+            simulatedBananas = simulatedBananas.filter(b => b.x < canvas.width + 60);
+
+            animationFrameId = requestAnimationFrame(animateConveyor);
+        }
+
+        // --- Video Upload Mode Handling ---
+        let uploadSimInterval = null;
+
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            const videoEl = document.getElementById('uploaded-video');
+            videoEl.src = url;
+
+            document.getElementById('upload-dropzone').classList.add('hidden');
+            document.getElementById('uploaded-player-wrapper').classList.remove('hidden');
+            showToast(`อัปโหลดวิดีโอ "${file.name}" สำเร็จ`, 'success');
+        }
+
+        function clearUploadedVideo() {
+            stopProcessing();
+            const videoEl = document.getElementById('uploaded-video');
+            videoEl.pause();
+            videoEl.src = '';
+            document.getElementById('video-file-input').value = '';
+            document.getElementById('uploaded-player-wrapper').classList.add('hidden');
+            document.getElementById('upload-dropzone').classList.remove('hidden');
+        }
+
+        function captureFromUploadedVideo() {
+            const videoEl = document.getElementById('uploaded-video');
+            if (!videoEl.src) {
+                showToast('กรุณาอัปโหลดไฟล์วิดีโอก่อนเริ่มตรวจจับ', 'warning');
+                return;
+            }
+
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = 240;
+            offCanvas.height = 160;
+            const offCtx = offCanvas.getContext('2d');
+
+            const vw = videoEl.videoWidth || 640;
+            const vh = videoEl.videoHeight || 360;
+
+            // Simulated YOLOv8 crop region inside the user's video
+            const rx = vw * (0.25 + Math.random() * 0.3);
+            const ry = vh * (0.25 + Math.random() * 0.3);
+            const rw = vw * 0.32;
+            const rh = vh * 0.32;
+
+            offCtx.drawImage(videoEl, rx, ry, rw, rh, 0, 0, 240, 160);
+
+            const keys = Object.keys(STAGES);
+            const stage = STAGES[keys[Math.floor(Math.random() * keys.length)]];
+            const id = ++bananaCounter;
+            const conf = (0.88 + Math.random() * 0.11).toFixed(2);
+
+            // Draw Bounding Box & Label onto the cropped output
+            offCtx.strokeStyle = stage.hexColor;
+            offCtx.lineWidth = 4;
+            offCtx.strokeRect(14, 24, 212, 122);
+
+            offCtx.fillStyle = stage.hexColor;
+            offCtx.fillRect(14, 4, 150, 20);
+            offCtx.fillStyle = '#0f172a';
+            offCtx.font = 'bold 11px Inter, sans-serif';
+            offCtx.fillText(`#${String(id).padStart(2, '0')} ${stage.key} ${Math.round(conf * 100)}%`, 20, 18);
+
+            const fakeBanana = {
+                id,
+                stage,
+                confidence: conf,
+                x: rx,
+                y: ry,
+                w: rw,
+                h: rh
+            };
+
+            recordDetection(fakeBanana, offCanvas.toDataURL('image/png'));
+        }
+
+        // --- Controls & Mode Switching ---
+        function switchMode(mode) {
+            stopProcessing();
+            currentMode = mode;
+
+            const btnDemo = document.getElementById('btn-mode-demo');
+            const btnUpload = document.getElementById('btn-mode-upload');
+            const viewDemo = document.getElementById('demo-viewport');
+            const viewUpload = document.getElementById('upload-viewport');
+
+            if (mode === 'demo') {
+                btnDemo.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
+                btnUpload.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                viewDemo.classList.remove('hidden');
+                viewUpload.classList.add('hidden');
+                resizeCanvas();
+                drawConveyorBackground();
+            } else {
+                btnUpload.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
+                btnDemo.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                viewUpload.classList.remove('hidden');
+                viewDemo.classList.add('hidden');
+            }
+        }
+
+        function toggleProcessing() {
+            if (isRunning) {
+                stopProcessing();
+            } else {
+                startProcessing();
+            }
+        }
+
+        function startProcessing() {
+            if (currentMode === 'upload') {
+                const videoEl = document.getElementById('uploaded-video');
+                if (!videoEl.src) {
+                    showToast('กรุณาเลือกไฟล์วิดีโอสายพานกล้วยก่อนกดเริ่ม', 'warning');
+                    return;
+                }
+                videoEl.play();
+                uploadSimInterval = setInterval(() => {
+                    if (!videoEl.paused && !videoEl.ended) {
+                        captureFromUploadedVideo();
+                    }
+                }, 1600);
+            } else {
+                resizeCanvas();
+                if (simulatedBananas.length === 0) {
+                    simulatedBananas.push(new SimulatedBanana(canvas.width, canvas.height));
+                }
+                lastSpawnTime = performance.now();
+                animationFrameId = requestAnimationFrame(animateConveyor);
+            }
+
+            isRunning = true;
+            if (detectionRecords.length === 0) startTime = Date.now();
+
+            // Update UI Button & HUD
+            const btn = document.getElementById('btn-toggle-run');
+            btn.classList.replace('bg-amber-500', 'bg-rose-500');
+            btn.classList.replace('hover:bg-amber-600', 'hover:bg-rose-600');
+            btn.classList.replace('text-slate-900', 'text-white');
+            document.getElementById('icon-toggle-run').className = 'fa-solid fa-pause';
+            document.getElementById('text-toggle-run').textContent = 'หยุดชั่วคราว (Pause)';
+
+            document.getElementById('hud-status').textContent = 'INFERENCE ACTIVE';
+            document.getElementById('live-dot').className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+            document.getElementById('demo-viewport').classList.add('scanning-active');
+            highlightPipelineStep(2);
+            showToast('เริ่มการตรวจจับ YOLOv8 & MobileNetV2', 'info');
+        }
+
+        function stopProcessing() {
+            isRunning = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (uploadSimInterval) clearInterval(uploadSimInterval);
+
+            if (currentMode === 'upload') {
+                const videoEl = document.getElementById('uploaded-video');
+                if (videoEl) videoEl.pause();
+            }
+
+            const btn = document.getElementById('btn-toggle-run');
+            btn.classList.replace('bg-rose-500', 'bg-amber-500');
+            btn.classList.replace('hover:bg-rose-600', 'hover:bg-amber-600');
+            btn.classList.replace('text-white', 'text-slate-900');
+            document.getElementById('icon-toggle-run').className = 'fa-solid fa-play';
+            document.getElementById('text-toggle-run').textContent = 'เริ่มตรวจจับ (Start Inference)';
+
+            document.getElementById('hud-status').textContent = 'PAUSED';
+            document.getElementById('live-dot').className = 'w-2 h-2 rounded-full bg-amber-400';
+            document.getElementById('demo-viewport').classList.remove('scanning-active');
+        }
+
+        function triggerManualCapture() {
+            if (currentMode === 'demo') {
+                if (simulatedBananas.length === 0) {
+                    const b = new SimulatedBanana(canvas.width, canvas.height);
+                    b.x = canvas.width * 0.45;
+                    simulatedBananas.push(b);
+                    drawConveyorBackground();
+                    b.draw(ctx, true, true);
+                }
+                const target = simulatedBananas[0];
+                const snap = createCroppedSnapshot(target);
+                recordDetection(target, snap);
+                showToast(`Crop ภาพ ${target.stage.labelTh} สำเร็จ`, 'success');
+            } else {
+                captureFromUploadedVideo();
+            }
+        }
+
+        function highlightPipelineStep(stepNum) {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`step-${i}`);
+                if (i === stepNum) {
+                    el.classList.add('ring-2', 'ring-amber-400', 'bg-amber-50/40');
+                } else {
+                    el.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-50/40');
+                }
+            }
+        }
+
+        // --- Dashboard Stats & Output Rendering ---
+        function updateDashboardStats() {
+            const total = detectionRecords.length;
+            const unripe = detectionRecords.filter(r => r.stageKey === 'Unripe').length;
+            const ripe = detectionRecords.filter(r => r.stageKey === 'Ripe').length;
+            const overripe = detectionRecords.filter(r => r.stageKey === 'Overripe').length;
+
+            const pctUnripe = total ? Math.round((unripe / total) * 100) : 0;
+            const pctRipe = total ? Math.round((ripe / total) * 100) : 0;
+            const pctOverripe = total ? Math.round((overripe / total) * 100) : 0;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-unripe').textContent = unripe;
+            document.getElementById('pct-unripe').textContent = `(${pctUnripe}%)`;
+            document.getElementById('bar-unripe').style.width = `${pctUnripe}%`;
+
+            document.getElementById('stat-ripe').textContent = ripe;
+            document.getElementById('pct-ripe').textContent = `(${pctRipe}%)`;
+            document.getElementById('bar-ripe').style.width = `${pctRipe}%`;
+
+            document.getElementById('stat-overripe').textContent = overripe;
+            document.getElementById('pct-overripe').textContent = `(${pctOverripe}%)`;
+            document.getElementById('bar-overripe').style.width = `${pctOverripe}%`;
+        }
+
+        function switchOutputTab(tab) {
+            activeTab = tab;
+            const btnGal = document.getElementById('tab-gallery');
+            const btnTab = document.getElementById('tab-table');
+            const viewGal = document.getElementById('view-gallery');
+            const viewTab = document.getElementById('view-table');
+
+            if (tab === 'gallery') {
+                btnGal.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
+                btnTab.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                viewGal.classList.remove('hidden');
+                viewTab.classList.add('hidden');
+            } else {
+                btnTab.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
+                btnGal.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                viewTab.classList.remove('hidden');
+                viewGal.classList.add('hidden');
+            }
+        }
+
+        function renderOutputs() {
+            const filter = document.getElementById('stage-filter').value;
+            const filtered = filter === 'ALL'
+                ? detectionRecords
+                : detectionRecords.filter(r => r.stageKey === filter);
+
+            // 1. Render Cropped Gallery
+            const emptyGal = document.getElementById('empty-gallery-state');
+            const grid = document.getElementById('cropped-grid');
+
+            if (filtered.length === 0) {
+                emptyGal.classList.remove('hidden');
+                grid.classList.add('hidden');
+            } else {
+                emptyGal.classList.add('hidden');
+                grid.classList.remove('hidden');
+                grid.innerHTML = filtered.map(item => `
+                    <div class="group bg-slate-50 rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col">
+                        <div class="relative aspect-[3/2] bg-slate-900 overflow-hidden">
+                            <img src="${item.image}" alt="${item.id}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                            <span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 text-white font-mono text-[10px] backdrop-blur-sm">
+                                ${item.timestamp}
+                            </span>
+                        </div>
+                        <div class="p-3 flex-1 flex flex-col justify-between space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-mono text-xs font-bold text-slate-700">${item.id}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold border ${item.badgeClass}">
+                                    ${item.stageLabel}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/70">
+                                <span>Conf: <strong class="text-slate-700 font-mono">${item.confidence}%</strong></span>
+                                <span class="font-mono truncate max-w-[115px]" title="Bounding Box [x,y,w,h]">${item.bbox}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // 2. Render CSV Data Table
+            const tbody = document.getElementById('csv-table-body');
+            const emptyTable = document.getElementById('empty-table-state');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyTable.classList.remove('hidden');
+            } else {
+                emptyTable.classList.add('hidden');
+                tbody.innerHTML = filtered.map(item => `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-2.5 px-4 font-mono font-semibold text-xs text-slate-800">${item.id}</td>
+                        <td class="py-2.5 px-4">
+                            <img src="${item.image}" alt="${item.id}" class="w-16 h-11 object-cover rounded-lg border border-slate-200">
+                        </td>
+                        <td class="py-2.5 px-4 font-mono text-xs text-slate-600">${item.timestamp}</td>
+                        <td class="py-2.5 px-4">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold border ${item.badgeClass}">
+                                ${item.stageLabel}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-4 font-mono text-xs font-semibold text-slate-700">${item.confidence}%</td>
+                        <td class="py-2.5 px-4 font-mono text-xs text-slate-500">${item.bbox}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function resetAllData() {
+            stopProcessing();
+            detectionRecords = [];
+            simulatedBananas = [];
+            bananaCounter = 0;
+            updateDashboardStats();
+            renderOutputs();
+            if (currentMode === 'demo') {
+                drawConveyorBackground();
+            }
+            highlightPipelineStep(1);
+            showToast('ล้างข้อมูลการตรวจจับทั้งหมดเรียบร้อย', 'info');
+        }
+
+        // --- Real CSV Report Export (with UTF-8 BOM for Thai Excel support) ---
+        function exportCSV() {
+            if (detectionRecords.length === 0) {
+                showToast('ยังไม่มีข้อมูลสำหรับส่งออก กรุณารันการตรวจจับก่อน', 'warning');
+                return;
+            }
+
+            highlightPipelineStep(4);
+
+            const headers = ['Banana_ID', 'Timestamp', 'Ripeness_Class_EN', 'Ripeness_Label_TH', 'MobileNetV2_Confidence(%)', 'YOLOv8_BBox_XYWH'];
+            const rows = detectionRecords.map(r => [
+                r.id,
+                r.timestamp,
+                r.stageKey,
+                `"${r.stageLabel}"`,
+                r.confidence,
+                `"${r.bbox}"`
+            ]);
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `banana_ripeness_report_${dateStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(`ดาวน์โหลดรายงาน CSV (${detectionRecords.length} รายการ) สำเร็จ`, 'success');
+        }
+
+        // Initialize Canvas on Load
+        window.onload = function () {
+            resizeCanvas();
+            drawConveyorBackground();
+            highlightPipelineStep(1);
+        };
+    </script>
+</body>
+</html>
