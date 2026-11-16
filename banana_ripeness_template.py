@@ -2,15 +2,13 @@ import cv2
 import torch
 from torchvision import transforms
 from PIL import Image
-from inference_sdk import InferenceHTTPClient, InferenceConfiguration
+from inference_sdk import InferenceHTTPClient
 
 # 1. ตั้งค่า Roboflow Client สำหรับ YOLOv8 Detection
 CLIENT = InferenceHTTPClient(
     api_url="https://serverless.roboflow.com",
     api_key="2He*****************"
-).configure(InferenceConfiguration(
-    api_key_transport="header"
-))
+)
 
 # 2. โหลดโมเดล MobileNetV2 สำหรับจำแนกความสุก (สมมติว่าเทรนและเซฟน้ำหนักไว้แล้วเป็น ripeness_model.pth)
 ripeness_model = torch.load("ripeness_model.pth", map_location="cpu")
@@ -23,8 +21,8 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-# รายชื่อคลาสความสุก (ตัวอย่าง)
-CLASSES_RIPENESS = ["Unripe (ดิบ)", "Ripe (สุก)", "Overripe (งอม)"]
+# รายชื่อคลาสความสุก (4 คลาส)
+CLASSES_RIPENESS = ["Unripe (ดิบ)", "Ripe (สุก)", "Overripe (งอม)", "Rotten (เน่าเสีย)"]
 
 def process_video(video_path, frame_interval=10):
     cap = cv2.VideoCapture(video_path)
