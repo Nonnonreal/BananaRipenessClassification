@@ -8,216 +8,338 @@ app_port: 7860
 pinned: false
 ---
 
-# 🍌 BananaVision AI: ระบบตรวจจับและคัดแยกความสุกของกล้วยบนสายพาน (4 Classes)
+# 🍌 Banana Ripeness Classification System
 
-ระบบตรวจจับพิกัดและจำแนกระดับความสุกของกล้วยอัตโนมัติจากคลิปวิดีโอบนสายพานลำเลียง (Conveyor Belt) ด้วยสถาปัตยกรรม **2-Stage Deep Learning Pipeline** พร้อมระบบแสดงผลบน **Web Application Dashboard** แบบเรียลไทม์ และระบบส่งออกรายงานสรุปข้อมูลในรูปแบบ CSV
+ระบบวิเคราะห์ความสุกของกล้วยแบบ Real-time โดยใช้ Computer Vision แบบ 2 ขั้นตอน (Two-Stage AI Pipeline) ประกอบด้วย Object Detection ด้วย YOLOv8 และ Image Classification ด้วย MobileNetV2
 
----
-
-## 📌 สรุปภาพรวมของโครงการ (Project Overview)
-
-ระบบถูกออกแบบมาเพื่อจำลองและประยุกต์ใช้งานจริงในโรงงานคัดแยกผลผลิตทางการเกษตร โดยผสานเทคโนโลยี Computer Vision และ Deep Learning เข้าด้วยกัน:
-
-1. **Stage 1 — Object Detection (YOLOv8 via Roboflow API):**
-   * ตรวจจับตำแหน่งของกล้วยในแต่ละเฟรมวิดีโอบนสายพาน
-   * ระบุพิกัด Bounding Box `[x, y, width, height]` พร้อมค่าความมั่นใจ (Confidence Score)
-   * ตัดภาพเฉพาะส่วนของกล้วยแต่ละผล (Auto-Cropping) เพื่อส่งต่อให้สเตจถัดไป
-2. **Stage 2 — Ripeness Classification (MobileNetV2):**
-   * รับภาพกล้วยที่ตัดมาจาก Stage 1 ปรับขนาดสู่ `224x224 px`
-   * ทำนายระดับความสุกด้วยโมเดล **MobileNetV2 (TensorFlow / Keras 100%)**
-   * จำแนกผลลัพธ์ออกเป็น **4 ระดับ (4 Stages)** ได้แก่ **Unripe, Ripe, Overripe และ Rotten**
-3. **Real-time Web Dashboard (Flask + SSE):**
-   * แสดงผลวิดีโอพร้อมแถบความคืบหน้า (Progress Bar) ขณะประมวลผล
-   * อัปเดตการตรวจจับแบบสดผ่าน **Server-Sent Events (SSE)**
-   * สรุปสถิติ KPI จำนวนและสัดส่วนเปอร์เซ็นต์ของแต่ละระดับความสุก
-   * แกลเลอรีภาพ Crop ที่ถูกตีกรอบ Bounding Box และป้าย Label
-   * ตารางข้อมูลรายงานที่สามารถกรองดูตามระดับความสุก และดาวน์โหลดเป็นไฟล์ CSV (UTF-8 BOM สำหรับ Excel ภาษาไทย)
+> **Live Demo:** [🤗 Hugging Face Spaces](https://huggingface.co/spaces/thananonny/banana-ripeness-ai)
 
 ---
 
-## 🏷️ รายละเอียดระดับความสุก 4 คลาส (4 Ripeness Stages)
+## 📋 สารบัญ
 
-โมเดลในโครงการนี้ได้รับการฝึกฝนเพื่อจำแนกกล้วยออกเป็น 4 ระดับอย่างแม่นยำ โดยจับคู่กับโครงสร้าง Dataset ดังนี้:
-
-| ลำดับ | คลาส (Stage Key) | ชื่อภาษาไทย | รหัสสี & ธีม | ลักษณะทางกายภาพของผลกล้วย | การนำไปใช้งาน |
-| :---: | :--- | :--- | :---: | :--- | :--- |
-| **1** | **`Unripe`** *(Class A)* | **ดิบ (Unripe)** | 🟢 เขียว (`#10b981`) | เปลือกสีเขียวสด เนื้อแน่น ยังไม่พร้อมรับประทาน | ขนส่งระยะไกล / รอการบ่ม |
-| **2** | **`Ripe`** *(Class B)* | **สุกพอดี (Ripe)** | 🟡 เหลือง (`#f59e0b`) | เปลือกสีเหลืองทอง สุกพอดี รสชาติหวานอร่อย | วางจำหน่ายสด / บริโภคทันที |
-| **3** | **`Overripe`** *(Class C)* | **สุกงอม (Overripe)** | 🟠 ส้ม (`#ea580c`) | สุกงอม เริ่มมีจุดกระสีน้ำตาล (Sugar Spots) | แปรรูปทำขนม (เค้กกล้วยหอม) |
-| **4** | **`Rotten`** *(Class D)* | **เน่าเสีย (Rotten)** | 🔴 กุหลาบเข้ม (`#e11d48`) | เปลือกดำคล้ำ ช้ำ มีรอยเน่า ไม่สามารถบริโภคได้ | คัดแยกทิ้ง / ทำปุ๋ยอินทรีย์ |
-
----
-
-## 🧠 ข้อมูลการฝึกฝนโมเดล (Model & Dataset Training)
-
-* **Dataset:** ดึงข้อมูลผ่าน Kaggle API (`luischuquimarca/banana-ripeness`) รวม 2,795 ภาพ
-  * **Train Set (80%):** 1,677 ภาพ
-  * **Validation Set (20%):** 419 ภาพ
-  * **Test Set:** 699 ภาพ
-* **สถาปัตยกรรมโมเดล:**
-  * Base Backbone: `MobileNetV2` (Pretrained บน ImageNet, Freeze Backbone)
-  * Head Layers: `GlobalAveragePooling2D` &rarr; `Dropout(0.25)` &rarr; `Dense(4, activation='softmax')`
-  * Optimizer: `Adam(learning_rate=1e-4)`, Loss: `sparse_categorical_crossentropy`
-  * Callbacks: `EarlyStopping`, `ReduceLROnPlateau`
-* **ความแม่นยำ (Test Accuracy):**
-  * โมเดลผ่านการประเมินบน Test Set 699 ภาพ ได้ค่าความแม่นยำสูงเฉลี่ย **>90%** (โดยเฉพาะ Class Rotten ทำได้ถึง **95.27%**)
-  * ตรวจสอบความโปร่งใสของโมเดลด้วย **Grad-CAM (Gradient-weighted Class Activation Mapping)** พบว่าโมเดลโฟกัสที่ผิวสัมผัส รอยกระ และรูปทรงกล้วยอย่างแม่นยำ ไม่สับสนกับฉากหลัง
-* **ไฟล์น้ำหนักโมเดล:** จัดเก็บไว้ที่ `models/MobileNetV2_banana_model.keras` (ขนาด ~23.47 MB)
+- [ภาพรวมระบบ](#ภาพรวมระบบ)
+- [AI Pipeline Method](#ai-pipeline-method)
+- [โครงสร้างโปรเจก](#โครงสร้างโปรเจก)
+- [การติดตั้งและรันในเครื่อง](#การติดตั้งและรันในเครื่อง)
+- [API Endpoints](#api-endpoints)
+- [รายละเอียดโมเดล](#รายละเอียดโมเดล)
+- [Deploy บน Hugging Face Spaces](#deploy-บน-hugging-face-spaces)
 
 ---
 
-## 📁 โครงสร้างโปรเจกต์ (Project Directory Structure)
+## ภาพรวมระบบ
 
-```text
-BananaRipenessClassification/
-├── .gitignore                               # กำหนดไฟล์ที่ไม่ให้นำขึ้น Git (เช่น .env, .venv)
-├── readme.md                                # เอกสารสรุปโครงการและคู่มือการใช้งาน
-├── BananaComVis_KaggleAPI_Colab.ipynb       # Jupyter Notebook เทรนโมเดลบน Google Colab
-├── banana_ripeness_ai_dashboard.html        # ไฟล์ UI Dashboard ต้นแบบ (Frontend Mockup)
-├── banana_ripeness_template.py              # สคริปต์ Template ตัวอย่าง Pipeline 2 สเตจ
-├── models/
-│   └── MobileNetV2_banana_model.keras       # ไฟล์น้ำหนักโมเดล MobileNetV2 (4 Classes)
-└── BananaRipeness/                          # โฟลเดอร์ Web Application หลัก (Production)
-    ├── app.py                               # Flask Web Server & API Endpoints
-    ├── detector.py                          # AI Pipeline (YOLOv8 + MobileNetV2 Pure Inference)
-    ├── run.py                               # สคริปต์สำหรับสั่งรันเซิร์ฟเวอร์
-    ├── start.bat                            # สคริปต์เปิดรันแบบคลิกเดียวบน Windows
-    ├── requirements.txt                     # รายการไลบรารี Dependencies ที่ต้องติดตั้ง
-    ├── .env                                 # ไฟล์เก็บ API Key และการตั้งค่าส่วนบุคคล (ไม่ขึ้น Git)
-    ├── .env.example                         # ไฟล์ตัวอย่างสำหรับการตั้งค่า
-    ├── templates/
-    │   └── index.html                       # หน้า Frontend UI Dashboard ที่เชื่อมต่อกับ Backend
-    └── static/
-        ├── uploads/                         # โฟลเดอร์จัดเก็บคลิปวิดีโอที่ผู้ใช้อัปโหลด
-        └── crops/                           # โฟลเดอร์จัดเก็บภาพกล้วยที่ถูก Crop และตีกรอบ
+ระบบสามารถรับ Input ได้ 3 รูปแบบ:
+
+| Mode | Input | Output |
+|------|-------|--------|
+| 🎥 Video Upload | ไฟล์วิดีโอ (.mp4, .avi, .mov) | Streaming frame-by-frame พร้อม Bounding Box |
+| 🖼️ Image Analysis | รูปภาพ 1 ใบ | ผลการตรวจจับและจำแนกชนิดความสุก |
+| 🏭 Demo Conveyor Belt | ภาพตัวอย่างในระบบ | จำลองสายพานลำเลียงพร้อม animation |
+
+**4 ระดับความสุกที่จำแนกได้:**
+
+| ระดับ | สี Label | ความหมาย |
+|-------|----------|-----------|
+| 🟢 Unripe | เขียว | ยังดิบ ยังไม่สุก |
+| 🟡 Ripe | เหลือง | สุกพอดี เหมาะสำหรับจำหน่าย |
+| 🟠 Overripe | ส้ม | สุกเกิน เริ่มมีจุดด่าง |
+| 🔴 Rotten | แดง | เน่าเสีย ไม่เหมาะจำหน่าย |
+
+---
+
+## AI Pipeline Method
+
+ระบบใช้สถาปัตยกรรม **Two-Stage Detection + Classification Pipeline**
+
+```
+Input (Video Frame / Image)
+         │
+         ▼
+┌─────────────────────────────────┐
+│  Stage 1: Object Detection      │
+│  YOLOv8s via Roboflow API       │
+│  Model: banana-detection-ieo3p/2│
+│  mAP: 85.78%                    │
+│                                 │
+│  → Detects banana locations     │
+│  → Returns Bounding Boxes (x,y, │
+│    w, h) + Banana Species class │
+└─────────────┬───────────────────┘
+              │  Crop each detected banana
+              ▼
+┌─────────────────────────────────┐
+│  Stage 2: Ripeness Classifier   │
+│  MobileNetV2 (Keras, 23.47 MB)  │
+│  Input: 224×224 RGB [0, 255]    │
+│                                 │
+│  → 4-class Softmax output:      │
+│     0: Unripe                   │
+│     1: Ripe                     │
+│     2: Overripe                 │
+│     3: Rotten                   │
+└─────────────┬───────────────────┘
+              │
+              ▼
+   Annotated Output + Confidence %
+```
+
+### Stage 1 — YOLOv8s Object Detection (Roboflow)
+
+- **Model:** `banana-detection-ieo3p/2` (YOLOv8s architecture)
+- **Host:** Roboflow Cloud Inference API (`https://detect.roboflow.com`)
+- **Input:** NumPy array (BGR frame จาก OpenCV)
+- **Output:** รายการ Bounding Box พร้อม class ชนิดกล้วย 5 สายพันธุ์:
+  - `kluai hom` (กล้วยหอม)
+  - `kluai kai` (กล้วยไข่)
+  - `Kluai Leb Mu Nang` (กล้วยเล็บมือนาง)
+  - `kluai nam wa` (กล้วยน้ำว้า)
+  - `kluai ta nee` (กล้วยตานี)
+
+### Stage 2 — MobileNetV2 Ripeness Classifier
+
+- **Architecture:** MobileNetV2 (Transfer Learning)
+- **Training Dataset:** [Banana Ripeness Dataset — Kaggle](https://www.kaggle.com/)
+- **Input Size:** 224 × 224 × 3 (RGB)
+- **Normalization:** Built-in ภายในโมเดล (`TrueDivide /127.5`, `Subtract -1.0`) — **ไม่ต้อง preprocess ซ้ำจากภายนอก**
+- **Output:** Softmax 4 classes พร้อม Confidence score
+- **File:** `models/MobileNetV2_banana_model.keras` (23.47 MB, tracked via Git LFS)
+
+### Video Streaming (SSE)
+
+สำหรับ mode วิดีโอ ระบบใช้ **Server-Sent Events (SSE)** เพื่อ stream ผลลัพธ์แบบ real-time:
+
+```
+Client                          Server (Flask)
+  │                                   │
+  │── POST /api/upload-video ─────────►│
+  │                                   │  บันทึกไฟล์
+  │◄─ { filename } ───────────────────│
+  │                                   │
+  │── GET /api/process-video-stream ──►│
+  │                                   │  วนซ้ำทุก Frame
+  │◄── data: { frame_b64, results } ──│  (YOLOv8 + MobileNetV2)
+  │◄── data: { frame_b64, results } ──│
+  │◄── data: [DONE] ──────────────────│
 ```
 
 ---
 
-## 🚀 คู่มือการติดตั้งและเริ่มใช้งาน (Quick Start Guide)
+## โครงสร้างโปรเจก
 
-### 1. ความต้องการของระบบ (Prerequisites)
-* ระบบปฏิบัติการ: Windows 10/11, macOS หรือ Linux
-* Python 3.10 หรือ Python 3.11 (แนะนำ **Python 3.11**)
-* เครื่องมือจัดการแพ็กเกจ: `pip` หรือ `uv` (แนะนำอย่างยิ่งเพื่อความเร็วในการติดตั้ง)
+```
+BananaRipenessClassification/
+├── Dockerfile                        # Docker config สำหรับ deploy บน HF Spaces
+├── README.md                         # ไฟล์นี้
+├── .gitattributes                    # Git LFS tracking สำหรับไฟล์ขนาดใหญ่
+├── .dockerignore
+│
+├── BananaRipeness/                   # Flask Web Application
+│   ├── app.py                        # Main Flask app + API Endpoints
+│   ├── detector.py                   # AI Pipeline (Roboflow + MobileNetV2)
+│   ├── run.py                        # Entry point สำหรับรัน local
+│   ├── requirements.txt              # Python dependencies
+│   ├── .env.example                  # ตัวอย่าง Environment Variables
+│   ├── templates/
+│   │   └── index.html                # Web Dashboard UI (3 modes)
+│   └── static/
+│       ├── demo_bananas/             # รูปตัวอย่างสำหรับ Demo mode
+│       │   ├── unripe.png
+│       │   ├── ripe.png
+│       │   ├── overripe.png
+│       │   ├── rotten.png
+│       │   └── banana_bunch.jpg
+│       ├── crops/                    # Cropped bounding boxes (temp)
+│       └── uploads/                  # Uploaded videos (temp)
+│
+├── models/
+│   └── MobileNetV2_banana_model.keras  # Trained model (23.47 MB, Git LFS)
+│
+└── BananaComVis_KaggleAPI_Colab.ipynb  # Notebook สำหรับ Training บน Kaggle/Colab
+```
 
 ---
 
-### 2. ตั้งค่าไฟล์สภาพแวดล้อม (`.env`)
-เข้าไปที่โฟลเดอร์ `BananaRipeness`:
+## การติดตั้งและรันในเครื่อง
+
+### Prerequisites
+
+- Python 3.10+
+- [Git LFS](https://git-lfs.com/) (สำหรับดาวน์โหลด `.keras` model)
+- Roboflow API Key ([สมัครฟรี](https://roboflow.com/))
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/<your-username>/BananaRipenessClassification.git
+cd BananaRipenessClassification
+
+# ดาวน์โหลดไฟล์ Git LFS (model .keras)
+git lfs pull
+```
+
+### 2. ตั้งค่า Environment Variables
+
+```bash
+cp BananaRipeness/.env.example BananaRipeness/.env
+```
+
+แก้ไขไฟล์ `.env`:
+
+```env
+ROBOFLOW_API_KEY=your_api_key_here
+ROBOFLOW_MODEL_ID=banana-detection-ieo3p/2
+```
+
+### 3. ติดตั้ง Dependencies
+
 ```bash
 cd BananaRipeness
-```
-สร้างหรือแก้ไขไฟล์ `.env` (คัดลอกจาก `.env.example`) แล้วใส่ **Roboflow API Key** ของคุณ:
-```env
-# Roboflow Inference API Settings
-ROBOFLOW_API_KEY=ใส่_Roboflow_API_Key_ของคุณที่นี่
-ROBOFLOW_API_URL=https://detect.roboflow.com
-ROBOFLOW_MODEL_ID=banana-detection-ieo3p/2
-
-# Classification Model Path (MobileNetV2 4 Classes)
-MODEL_PATH=../models/MobileNetV2_banana_model.keras
-
-# Video Processing Parameters
-DEFAULT_FRAME_INTERVAL=10
-DEFAULT_CONF_THRESHOLD=0.75
-
-# Web Application Settings
-HOST=127.0.0.1
-PORT=5000
-DEBUG=True
-```
-
----
-
-### 3. การสร้าง Virtual Environment และติดตั้ง Dependencies
-
-#### วิธีที่ 1: ติดตั้งผ่าน `uv` (แนะนำ - เร็วที่สุดภายใน 1 นาที)
-```powershell
-# 1. สร้าง Virtual Environment ด้วย Python 3.11
-uv venv .venv --python 3.11
-
-# 2. ติดตั้งแพ็กเกจทั้งหมดจาก requirements.txt
-uv pip install -r requirements.txt --python .venv\Scripts\python.exe
-```
-
-#### วิธีที่ 2: ติดตั้งผ่าน `python venv` มาตรฐาน
-```powershell
-# 1. สร้าง Virtual Environment
 python -m venv .venv
 
-# 2. เปิดใช้งาน Virtual Environment (Windows PowerShell)
-.venv\Scripts\Activate.ps1
+# Windows
+.venv\Scripts\activate
 
-# 3. ติดตั้งแพ็กเกจ
+# macOS / Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
----
+### 4. รัน Application
 
-### 4. สั่งรัน Web Application
-
-รันคำสั่ง:
-```powershell
-.venv\Scripts\python.exe run.py
-```
-*(หรือเพียงดับเบิลคลิกที่ไฟล์ **`BananaRipeness\start.bat`**)*
-
-เมื่อเซิร์ฟเวอร์เริ่มต้นสำเร็จ จะแสดงข้อความในเทอร์มินัล:
-```text
-[Detector] เชื่อมต่อ Roboflow Client สำเร็จ (Model: banana-detection-ieo3p/2)
-[Detector] กำลังโหลดโมเดล MobileNetV2 จาก: .../models/MobileNetV2_banana_model.keras (ขนาด 23.47 MB)...
-✅ [Detector] โหลดโมเดล MobileNetV2 (TensorFlow/Keras) สำเร็จ 100% พร้อมใช้งาน!
-🚀 Server started at: http://127.0.0.1:5000
-```
-
-เปิดเว็บเบราว์เซอร์ไปที่:
-👉 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
-
----
-
-## 💻 คู่มือการใช้งานหน้าเว็บ (Web Application Usage)
-
-1. **โหมดอัปโหลดวิดีโอจริง (Video Upload Mode - แนะนำ):**
-   * ลากไฟล์วิดีโอสายพานกล้วย (`.mp4`, `.mov`, `.avi`, `.webm`) วางลงในช่อง Dropzone หรือคลิกเลือกไฟล์
-   * ปรับตั้งค่า **Confidence Threshold** และ **Frame Interval** (ข้ามเฟรมเพื่อเร่งความเร็วในการประมวลผล) ที่การ์ดด้านขวา
-   * กดปุ่ม **"เริ่มตรวจจับ (Start Inference)"**
-   * ระบบจะแสดงแถบความคืบหน้า (Progress Bar) และแสดงภาพ Crop พร้อมป้ายสเตจและ Confidence Score ลงในแกลเลอรีสดทันทีที่ตรวจพบ
-2. **โหมดจำลองสายพาน (Demo Conveyor Simulation):**
-   * กดสลับแท็บไปที่ **"จำลองสายพาน (Demo)"** เพื่อทดสอบระบบหน้าบ้านโดยไม่ต้องอัปโหลดวิดีโอ
-   * กล้วยจำลองทั้ง 4 สเตจจะเคลื่อนที่ผ่านเส้นตรวจจับ (Auto-Crop Line) เพื่อจำลองการตัดภาพและวิเคราะห์แบบ Interactive
-3. **การกรองผลลัพธ์ (Filtering):**
-   * เลือกตัวกรองที่ Dropdown ด้านบน เพื่อดูเฉพาะคลาสที่สนใจ: `Unripe`, `Ripe`, `Overripe`, หรือ `Rotten`
-4. **การส่งออกรายงาน (Export CSV):**
-   * กดปุ่ม **"ส่งออก CSV"** มุมขวาบน ระบบจะสร้างไฟล์รายงาน `banana_ripeness_report_YYYY-MM-DD.csv` ที่มีรหัสกล้วย, Timestamp, ระดับความสุก, ค่าความมั่นใจ, และพิกัด Bounding Box
-   * รองรับภาษาไทยใน Microsoft Excel อย่างสมบูรณ์ผ่านการเข้ารหัส UTF-8 BOM
-
----
-
-## 🔒 แนวทางความปลอดภัยและคำแนะนำสำหรับการ Git Push
-
-ไฟล์ [`.gitignore`](file:///C:/Users/HP/Documents/GitHub/BananaRipenessClassification/.gitignore) ได้รับการตั้งค่าไว้เรียบร้อยแล้วเพื่อป้องกันความลับหลุด:
-
-* ❌ **`.env`** จะถูกมองข้าม ไม่ถูก Push ขึ้น GitHub เด็ดขาด เพื่อความปลอดภัยของ API Key
-* ❌ **`.venv/`** และ `__pycache__/` จะไม่ถูกส่งขึ้น Git
-* ❌ ไฟล์วิดีโอใน `static/uploads/` และภาพ Crop ชั่วคราวใน `static/crops/` จะไม่ถูกส่งขึ้น Git
-* ✅ ส่งเฉพาะไฟล์โค้ด, โมเดล, เอกสาร และ **`.env.example`** ขึ้น Git เท่านั้น
-
-**คำสั่ง Push ขึ้น Git ที่ถูกต้อง:**
 ```bash
-git status               # ตรวจสอบความปลอดภัย (ต้องไม่พบไฟล์ .env)
-git add .
-git commit -m "Complete BananaRipeness 4-class classification web application"
-git push origin main
+python run.py
+```
+
+เปิดเบราว์เซอร์ที่ `http://localhost:7860`
+
+### รันด้วย Docker
+
+```bash
+# Build image
+docker build -t banana-ripeness .
+
+# Run container
+docker run -p 7860:7860 \
+  -e ROBOFLOW_API_KEY=your_key \
+  -e ROBOFLOW_MODEL_ID=banana-detection-ieo3p/2 \
+  banana-ripeness
 ```
 
 ---
 
-## ❓ คำถามที่พบบ่อย (Troubleshooting & FAQ)
+## API Endpoints
 
-* **Q: ถ้าเปิดไฟล์ `index.html` ขึ้นมาโดยตรง (เปิดแบบ `file:///...`) จะใช้งานได้ไหม?**
-  * **A:** ดูหน้าตา UI และเล่นโหมดจำลองสายพาน (Demo) ได้ครับ แต่จะประมวลผลคลิปวิดีโอจริงไม่ได้ เนื่องจากโมเดล YOLOv8 และ MobileNetV2 ต้องทำงานผ่านเซิร์ฟเวอร์ Python หลังบ้านที่รันผ่าน `http://127.0.0.1:5000`
-* **Q: เกิดข้อผิดพลาด `InferenceConfiguration.__init__() got an unexpected keyword argument 'api_key_transport'` เกิดจากอะไร?**
-  * **A:** เกิดจากไลบรารี `inference-sdk` เวอร์ชันใหม่ได้ตัดพารามิเตอร์นี้ออก ในโค้ดปัจจุบันได้รับการแก้ไขให้ส่ง `api_url` และ `api_key` เข้า `InferenceHTTPClient(api_url=..., api_key=...)` โดยตรงแล้ว
-* **Q: ทำไมต้องบังคับใช้ MobileNetV2 100% และไม่ใช้ Heuristic?**
-  * **A:** เพราะโมเดล Deep Learning ที่เทรนมา 4 คลาสสามารถตรวจจับรอยช้ำ, ลวดลาย, และเฉดสีได้อย่างแม่นยำสูง (Accuracy >90%) การตัด Heuristic ออกช่วยรับประกันว่าผลลัพธ์ทุกชิ้นมาจากการตัดสินใจของ AI โมเดลจริง 100%
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Web Dashboard UI |
+| `GET` | `/api/status` | ตรวจสอบสถานะระบบและโมเดล |
+| `POST` | `/api/upload-video` | อัปโหลดไฟล์วิดีโอ |
+| `GET` | `/api/process-video-stream` | Stream ผลลัพธ์วิดีโอแบบ SSE |
+| `POST` | `/api/process-demo-frame` | ประมวลผล Demo frame |
+| `POST` | `/api/analyze-image` | วิเคราะห์รูปภาพนิ่ง |
+| `GET` | `/api/demo-images` | ดึงรายการรูปตัวอย่าง |
+
+### ตัวอย่าง: วิเคราะห์รูปภาพ
+
+```bash
+curl -X POST http://localhost:7860/api/analyze-image \
+  -F "image=@banana.jpg"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "detections": [
+    {
+      "class": "kluai hom",
+      "confidence": 0.92,
+      "ripeness": "Ripe",
+      "ripeness_confidence": 0.87,
+      "bbox": { "x": 120, "y": 80, "width": 200, "height": 300 }
+    }
+  ],
+  "total_bananas": 1,
+  "annotated_image": "<base64 string>"
+}
+```
+
+---
+
+## รายละเอียดโมเดล
+
+### Object Detection — YOLOv8s (Roboflow)
+
+| Metric | Value |
+|--------|-------|
+| Architecture | YOLOv8s |
+| mAP@0.5 | 85.78% |
+| Classes | 5 ชนิดกล้วย |
+| Host | Roboflow Cloud API |
+| Model ID | `banana-detection-ieo3p/2` |
+
+### Ripeness Classifier — MobileNetV2 (Keras)
+
+| Metric | Value |
+|--------|-------|
+| Architecture | MobileNetV2 (Transfer Learning) |
+| Input Size | 224 × 224 × 3 |
+| Output Classes | 4 (Unripe, Ripe, Overripe, Rotten) |
+| Model Size | 23.47 MB |
+| Format | Keras `.keras` |
+| Storage | Git LFS |
+
+---
+
+## Deploy บน Hugging Face Spaces
+
+Space นี้ Deploy ด้วย Docker SDK บน Hugging Face Spaces
+
+### ขั้นตอน Deploy
+
+```bash
+# 1. เพิ่ม HF Space เป็น remote
+git remote add space https://huggingface.co/spaces/<username>/banana-ripeness-ai
+
+# 2. ตั้งค่า Secrets ใน HF Spaces Settings
+#    ROBOFLOW_API_KEY = your_api_key
+
+# 3. Push ขึ้น Space
+git push space main
+```
+
+### Environment Variables ที่ต้องตั้งใน HF Spaces Secrets
+
+| Variable | Description |
+|----------|-------------|
+| `ROBOFLOW_API_KEY` | Roboflow API Key สำหรับ YOLOv8 Inference |
+| `ROBOFLOW_MODEL_ID` | Model ID (default: `banana-detection-ieo3p/2`) |
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Backend | Python, Flask |
+| Object Detection | YOLOv8s via Roboflow Inference SDK |
+| Classification | MobileNetV2 (TensorFlow / Keras) |
+| Image Processing | OpenCV, PIL |
+| Streaming | Server-Sent Events (SSE) |
+| Frontend | HTML5, CSS3, JavaScript |
+| Containerization | Docker |
+| Deployment | Hugging Face Spaces (Docker SDK) |
+| Model Storage | Git LFS |
+
+---
+
+## 📄 License
+
+This project is for educational purposes.
+
+---
+
+*Built with ❤️ for Banana Quality Control*
