@@ -102,7 +102,7 @@ cd BananaRipeness
 ```env
 # Roboflow Inference API Settings
 ROBOFLOW_API_KEY=ใส่_Roboflow_API_Key_ของคุณที่นี่
-ROBOFLOW_API_URL=https://serverless.roboflow.com
+ROBOFLOW_API_URL=https://detect.roboflow.com
 ROBOFLOW_MODEL_ID=banana-detection-ieo3p/2
 
 # Classification Model Path (MobileNetV2 4 Classes)

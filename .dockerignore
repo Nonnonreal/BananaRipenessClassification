@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+BananaRipeness/static/uploads/*
+!BananaRipeness/static/uploads/.gitkeep
+BananaRipeness/static/crops/*
+!BananaRipeness/static/crops/.gitkeep

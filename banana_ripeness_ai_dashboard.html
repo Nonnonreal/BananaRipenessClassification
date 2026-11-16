@@ -512,6 +512,18 @@
             }, 3000);
         }
 
+        // --- Preload Real Banana Images for Conveyor Simulation ---
+        const demoBananaImages = {
+            Unripe: new Image(),
+            Ripe: new Image(),
+            Overripe: new Image(),
+            Rotten: new Image()
+        };
+        demoBananaImages.Unripe.src = 'static/demo_bananas/unripe.png';
+        demoBananaImages.Ripe.src = 'static/demo_bananas/ripe.png';
+        demoBananaImages.Overripe.src = 'static/demo_bananas/overripe.png';
+        demoBananaImages.Rotten.src = 'static/demo_bananas/rotten.png';
+
         // --- Conveyor Simulation Setup ---
         const canvas = document.getElementById('conveyorCanvas');
         const ctx = canvas.getContext('2d');
@@ -533,12 +545,12 @@
                 this.stage = STAGES[randomKey];
                 this.id = ++bananaCounter;
                 this.confidence = (0.86 + Math.random() * 0.13).toFixed(2); // 0.86 - 0.99
-                this.w = Math.max(95, canvasWidth * 0.16);
-                this.h = Math.max(55, canvasHeight * 0.17);
+                this.w = Math.max(105, canvasWidth * 0.17);
+                this.h = Math.max(60, canvasHeight * 0.18);
                 this.x = -this.w - 20;
                 this.y = (canvasHeight * 0.25) + Math.random() * (canvasHeight * 0.45);
                 this.speed = Math.max(1.8, canvasWidth * 0.0032);
-                this.angle = (Math.random() - 0.5) * 0.35;
+                this.angle = (Math.random() - 0.5) * 0.25;
                 this.captured = false;
             }
 
@@ -551,36 +563,25 @@
                 const cx = this.x + this.w / 2;
                 const cy = this.y + this.h / 2;
 
-                // Draw Stylized Banana Shape
                 targetCtx.translate(cx, cy);
                 targetCtx.rotate(this.angle);
 
-                // Banana body curve
-                targetCtx.beginPath();
-                targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
-                targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
-                targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
-                targetCtx.closePath();
-                targetCtx.fillStyle = this.stage.bodyColor;
-                targetCtx.fill();
-                targetCtx.lineWidth = 2;
-                targetCtx.strokeStyle = this.stage.tipColor;
-                targetCtx.stroke();
-
-                // Stem & Tip
-                targetCtx.fillStyle = this.stage.tipColor;
-                targetCtx.fillRect(-this.w * 0.45, -this.h * 0.2, 6, 6);
-                targetCtx.fillRect(this.w * 0.40, -this.h * 0.18, 5, 5);
-
-                // Brown sugar spots if Overripe
-                if (this.stage.spots) {
-                    targetCtx.fillStyle = '#78350f';
-                    const spotCoords = [[-12, 4], [5, 8], [18, 2], [-2, 11], [10, 4]];
-                    spotCoords.forEach(([sx, sy]) => {
-                        targetCtx.beginPath();
-                        targetCtx.arc(sx, sy, 2.3, 0, Math.PI * 2);
-                        targetCtx.fill();
-                    });
+                // Draw Real Banana Photo
+                const realImg = demoBananaImages[this.stage.key];
+                if (realImg && realImg.complete && realImg.naturalWidth > 0) {
+                    targetCtx.drawImage(realImg, -this.w / 2, -this.h / 2, this.w, this.h);
+                } else {
+                    // Fallback to vector shape
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
+                    targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
+                    targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
+                    targetCtx.closePath();
+                    targetCtx.fillStyle = this.stage.bodyColor;
+                    targetCtx.fill();
+                    targetCtx.lineWidth = 2;
+                    targetCtx.strokeStyle = this.stage.tipColor;
+                    targetCtx.stroke();
                 }
 
                 targetCtx.restore();

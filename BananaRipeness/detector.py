@@ -1,14 +1,18 @@
 import os
 import cv2
+import time
 import numpy as np
 from PIL import Image
 from dotenv import load_dotenv
 
-# โหลดค่าตัวแปรจาก .env
-load_dotenv()
+# โหลดค่าตัวแปรจาก .env (ค้นหา path ที่แน่นอน)
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+if not os.path.exists(ENV_PATH):
+    ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
+load_dotenv(ENV_PATH, override=True)
 
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
-ROBOFLOW_API_URL = os.getenv("ROBOFLOW_API_URL", "https://serverless.roboflow.com")
+ROBOFLOW_API_URL = os.getenv("ROBOFLOW_API_URL", "https://detect.roboflow.com")
 ROBOFLOW_MODEL_ID = os.getenv("ROBOFLOW_MODEL_ID", "banana-detection-ieo3p/2")
 MODEL_PATH = os.getenv("MODEL_PATH", "../models/MobileNetV2_banana_model.keras")
 DEFAULT_FRAME_INTERVAL = int(os.getenv("DEFAULT_FRAME_INTERVAL", 10))
@@ -59,17 +63,20 @@ def init_roboflow_client():
     """ตั้งค่า Roboflow Client สำหรับ YOLOv8 Detection"""
     global roboflow_client
     api_key = os.getenv("ROBOFLOW_API_KEY", "")
-    if not api_key or "your_" in api_key or "2He***" in api_key:
+    if not api_key or "your_" in api_key:
         print("[Detector] Roboflow API Key ยังไม่ได้ตั้งค่าหรือเป็นค่าตัวอย่างใน .env")
         roboflow_client = None
         return False
     try:
         from inference_sdk import InferenceHTTPClient
+        api_url = os.getenv("ROBOFLOW_API_URL", "https://detect.roboflow.com")
+        model_id = os.getenv("ROBOFLOW_MODEL_ID", ROBOFLOW_MODEL_ID)
         roboflow_client = InferenceHTTPClient(
-            api_url=ROBOFLOW_API_URL,
+            api_url=api_url,
             api_key=api_key
         )
-        print(f"[Detector] เชื่อมต่อ Roboflow Client สำเร็จ (Model: {ROBOFLOW_MODEL_ID})")
+        roboflow_client.use_api_v0()
+        print(f"[Detector] เชื่อมต่อ Roboflow Client สำเร็จ (Model: {model_id}, URL: {api_url})")
         return True
     except Exception as e:
         print(f"[Detector] ไม่สามารถเชื่อมต่อ Roboflow Client ได้: {e}")
@@ -150,13 +157,14 @@ def classify_crop(bgr_crop):
 
     # โมเดล TensorFlow/Keras
     if classifier_type == "keras":
-        import tensorflow as tf
         # แปลง BGR -> RGB และปรับขนาดเป็น 224x224 ตาม Input Shape ของ MobileNetV2
         rgb = cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(rgb).resize((224, 224))
         arr = np.array(img, dtype=np.float32)
-        # Preprocessing เฉพาะของ MobileNetV2 (scale pixel สู่ช่วง [-1, 1])
-        arr = tf.keras.applications.mobilenet_v2.preprocess_input(arr)
+
+        # หมายเหตุสำคัญ: โมเดล MobileNetV2 ตัวนี้มีเลเยอร์ true_divide (/127.5) และ subtract (-1.0)
+        # ฝังอยู่ภายในตัวโมเดลแล้ว จึงต้องส่งค่าพิกเซล RGB ในช่วง [0, 255] เข้าไปโดยตรง
+        # ห้ามเรียก preprocess_input ซ้ำซ้อนภายนอก เพราะจะทำให้ภาพถูก normalize 2 รอบจนกลายเป็นค่า -1 ทั้งหมด
         arr = np.expand_dims(arr, axis=0)
         
         preds = classifier_model.predict(arr, verbose=0)[0]
@@ -194,11 +202,11 @@ def classify_crop(bgr_crop):
 def fallback_banana_detection(frame):
     """
     ตรวจจับกล้วยด้วย OpenCV (Color Segmentation + Contour) 
-    ใช้เฉพาะเมื่อไม่ได้ใส่ Roboflow API Key สำหรับ Stage 1
+    ใช้เฉพาะเมื่อ Roboflow ไม่ตอบกลับหรือไม่มี API Key สำหรับ Stage 1
     """
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower = np.array([18, 40, 50])
-    upper = np.array([85, 255, 255])
+    lower = np.array([15, 30, 40])
+    upper = np.array([90, 255, 255])
     mask = cv2.inRange(hsv, lower, upper)
     
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
@@ -207,34 +215,35 @@ def fallback_banana_detection(frame):
     
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     predictions = []
-    min_area = (frame.shape[0] * frame.shape[1]) * 0.008
+    min_area = (frame.shape[0] * frame.shape[1]) * 0.005
     
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area > min_area:
             x, y, w, h = cv2.boundingRect(cnt)
             aspect_ratio = max(w, h) / (min(w, h) + 1e-5)
-            if aspect_ratio >= 1.2:
+            if aspect_ratio >= 1.1:
                 predictions.append({
                     "x": x + w / 2,
                     "y": y + h / 2,
                     "width": w,
                     "height": h,
-                    "confidence": min(0.94, 0.78 + (area / (frame.shape[0] * frame.shape[1])) * 2),
+                    "confidence": min(0.92, 0.70 + (area / (frame.shape[0] * frame.shape[1])) * 2),
                     "class": "banana"
                 })
     return predictions
 
 
-def detect_bananas_in_frame(frame, temp_image_path="temp_frame.jpg"):
+def detect_bananas_in_frame(frame, temp_image_path=None):
     """
-    เรียกใช้ Roboflow YOLOv8 เพื่อหาตำแหน่งกล้วยในภาพ
+    เรียกใช้ Roboflow เพื่อหาตำแหน่งกล้วยในภาพ (รองรับ numpy array BGR โดยตรง)
     """
     global roboflow_client
+    model_id = os.getenv("ROBOFLOW_MODEL_ID", ROBOFLOW_MODEL_ID)
     if roboflow_client is not None:
         try:
-            cv2.imwrite(temp_image_path, frame)
-            res = roboflow_client.infer(temp_image_path, model_id=ROBOFLOW_MODEL_ID)
+            # inference_sdk รองรับ numpy array ได้โดยตรง
+            res = roboflow_client.infer(frame, model_id=model_id)
             return res.get("predictions", [])
         except Exception as e:
             print(f"[Detector] Roboflow infer ล้มเหลว ({e}) - สลับใช้ Fallback Detection")
@@ -265,9 +274,101 @@ def annotate_crop_image(cropped_banana, stage_info, banana_id, conf_pct):
     return annotated
 
 
+def process_demo_banana(bgr_snapshot, banana_counter=1, conf_threshold=0.35, output_crops_dir=None, timestamp_sec=0.0):
+    """
+    ประมวลผลกล้วยในโหมดสายพานจำลอง (Demo):
+    1. ส่งภาพเข้า Roboflow หา Bounding Box จริง
+    2. ทำการ Crop ภาพตาม Bounding Box ของ Roboflow
+    3. ส่งภาพ Crop เข้าโมเดล MobileNetV2 จำแนก 4 ระดับความสุกจริง (Unripe, Ripe, Overripe, Rotten)
+    4. วาด Bounding Box & Annotation ลงบนภาพ Crop บันทึกลง static/crops/
+    5. ส่งข้อมูลผลลัพธ์กลับไปยังหน้าบ้าน
+    """
+    if output_crops_dir is None:
+        output_crops_dir = os.path.join(os.path.dirname(__file__), "static", "crops")
+    os.makedirs(output_crops_dir, exist_ok=True)
+    
+    h_img, w_img = bgr_snapshot.shape[:2]
+    
+    # 1. รัน Roboflow Detection
+    predictions = detect_bananas_in_frame(bgr_snapshot)
+    
+    roboflow_info = {
+        "detected": False,
+        "class": "banana",
+        "confidence": 0.0,
+        "box": None
+    }
+    
+    target_pred = None
+    if predictions:
+        sorted_preds = sorted(predictions, key=lambda p: p.get("confidence", 0), reverse=True)
+        if sorted_preds[0].get("confidence", 0) >= conf_threshold:
+            target_pred = sorted_preds[0]
+        elif len(sorted_preds) > 0 and sorted_preds[0].get("confidence", 0) >= 0.20:
+            target_pred = sorted_preds[0]
+
+    if target_pred:
+        bx = float(target_pred["x"])
+        by = float(target_pred["y"])
+        bw = float(target_pred["width"])
+        bh = float(target_pred["height"])
+        bconf = float(target_pred.get("confidence", 0.0))
+        bcls = str(target_pred.get("class", "banana"))
+        
+        roboflow_info = {
+            "detected": True,
+            "class": bcls,
+            "confidence": round(bconf * 100, 1),
+            "box": [round(bx, 1), round(by, 1), round(bw, 1), round(bh, 1)]
+        }
+        
+        x1 = max(0, int(bx - bw / 2))
+        y1 = max(0, int(by - bh / 2))
+        x2 = min(w_img, int(bx + bw / 2))
+        y2 = min(h_img, int(by + bh / 2))
+    else:
+        # Fallback กรณี Roboflow ไม่พบ ให้ Crop โซนกลางภาพ
+        pad_w = int(w_img * 0.1)
+        pad_h = int(h_img * 0.1)
+        x1, y1 = pad_w, pad_h
+        x2, y2 = w_img - pad_w, h_img - pad_h
+        bx = w_img / 2.0
+        by = h_img / 2.0
+        bw = float(x2 - x1)
+        bh = float(y2 - y1)
+    
+    cropped = bgr_snapshot[y1:y2, x1:x2]
+    if cropped.size == 0 or cropped.shape[0] < 5 or cropped.shape[1] < 5:
+        cropped = bgr_snapshot
+    
+    # 2. ส่งภาพ Crop เข้า MobileNetV2 (100% Real Deep Learning Classification)
+    stage_key, stage_conf = classify_crop(cropped)
+    stage_info = STAGES_INFO.get(stage_key, STAGES_INFO["Ripe"])
+    conf_pct = round(stage_conf * 100, 1)
+    
+    # 3. วาด Bounding Box & บันทึกภาพลง static/crops
+    annotated_crop = annotate_crop_image(cropped, stage_info, banana_counter, conf_pct)
+    crop_filename = f"crop_demo_{banana_counter:04d}_{int(time.time() * 1000) % 100000}.jpg"
+    crop_path = os.path.join(output_crops_dir, crop_filename)
+    cv2.imwrite(crop_path, annotated_crop)
+    
+    return {
+        "id": f"BN-{banana_counter:04d}",
+        "timestamp": f"{timestamp_sec:.1f}s",
+        "stageKey": stage_info["key"],
+        "stageLabel": stage_info["labelTh"],
+        "badgeClass": stage_info["badgeClass"],
+        "confidence": conf_pct,
+        "roboflow": roboflow_info,
+        "bbox": f"[{int(x1)}, {int(y1)}, {int(bw)}, {int(bh)}]",
+        "box_coords": {"x": int(x1), "y": int(y1), "w": int(bw), "h": int(bh)},
+        "image": f"/static/crops/{crop_filename}"
+    }
+
+
 def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, conf_threshold=DEFAULT_CONF_THRESHOLD, output_crops_dir="static/crops"):
     """
-    ประมวลผลวิดีโอแบบ Generator ส่งผลลัพธ์ผ่าน MobileNetV2 100%
+    ประมวลผลวิดีโอแบบ Generator ส่งผลลัพธ์ผ่าน Roboflow + MobileNetV2 100%
     """
     os.makedirs(output_crops_dir, exist_ok=True)
     
@@ -289,7 +390,6 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
     
     frame_count = 0
     banana_counter = 0
-    temp_frame_path = os.path.join(output_crops_dir, "_temp_frame.jpg")
     
     try:
         while cap.isOpened():
@@ -305,8 +405,8 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
             elapsed_sec = frame_count / fps
             progress_pct = min(100, int((frame_count / total_frames) * 100))
             
-            # Stage 1: ตรวจจับตำแหน่งด้วย YOLOv8
-            predictions = detect_bananas_in_frame(frame, temp_frame_path)
+            # Stage 1: ตรวจจับตำแหน่งด้วย Roboflow
+            predictions = detect_bananas_in_frame(frame)
             
             for pred in predictions:
                 conf = pred.get("confidence", 0.0)
@@ -368,11 +468,6 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
             
     finally:
         cap.release()
-        if os.path.exists(temp_frame_path):
-            try:
-                os.remove(temp_frame_path)
-            except Exception:
-                pass
                 
     yield {
         "type": "complete",
@@ -381,6 +476,129 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
     }
 
 
-# โหลด Client และโมเดล MobileNetV2
+def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, image_counter_start=1):
+    """
+    วิเคราะห์ภาพนิ่ง 1 ภาพแบบ Full Pipeline:
+    1. ส่งทั้งภาพเข้า Roboflow → ได้ Bounding Box ของกล้วยทุกอัน
+    2. Crop ตาม BBox แต่ละอัน → ส่งเข้า MobileNetV2 จำแนก 4 คลาส
+    3. วาด annotation + bbox บนภาพ full + บนภาพ crop แต่ละชิ้น
+    4. ส่งคืนผลลัพธ์ทุก detection + ภาพ annotated full (base64)
+    """
+    if output_crops_dir is None:
+        output_crops_dir = os.path.join(os.path.dirname(__file__), "static", "crops")
+    os.makedirs(output_crops_dir, exist_ok=True)
+
+    h_img, w_img = bgr_image.shape[:2]
+    predictions = detect_bananas_in_frame(bgr_image)
+
+    # กรอง predictions ตาม conf_threshold (แต่ถ้าไม่มีเลยให้ผ่อนลงมา 0.20)
+    filtered = [p for p in predictions if p.get("confidence", 0) >= conf_threshold]
+    if not filtered and predictions:
+        filtered = [p for p in predictions if p.get("confidence", 0) >= 0.20]
+
+    # สำเนาภาพสำหรับวาด annotation รวม
+    annotated_full = bgr_image.copy()
+
+    detections = []
+    banana_counter = image_counter_start
+
+    STAGE_COLORS = {
+        "Unripe":   (129, 185, 16),
+        "Ripe":     (11, 158, 245),
+        "Overripe": (12, 88, 234),
+        "Rotten":   (72, 29, 225),
+    }
+
+    for pred in sorted(filtered, key=lambda p: p.get("confidence", 0), reverse=True):
+        bx = float(pred["x"])
+        by = float(pred["y"])
+        bw = float(pred["width"])
+        bh = float(pred["height"])
+        bconf = float(pred.get("confidence", 0.0))
+        bcls  = str(pred.get("class", "banana"))
+
+        x1 = max(0, int(bx - bw / 2))
+        y1 = max(0, int(by - bh / 2))
+        x2 = min(w_img, int(bx + bw / 2))
+        y2 = min(h_img, int(by + bh / 2))
+
+        cropped = bgr_image[y1:y2, x1:x2]
+        if cropped.size == 0 or cropped.shape[0] < 10 or cropped.shape[1] < 10:
+            continue
+
+        # Stage 2: MobileNetV2 classify
+        stage_key, stage_conf = classify_crop(cropped)
+        stage_info  = STAGES_INFO.get(stage_key, STAGES_INFO["Ripe"])
+        conf_pct    = round(stage_conf * 100, 1)
+        color_bgr   = STAGE_COLORS.get(stage_key, (200, 200, 200))
+
+        # วาด bbox บนภาพ full
+        cv2.rectangle(annotated_full, (x1, y1), (x2, y2), color_bgr, 3)
+        label = f"#{banana_counter} {stage_key} {int(conf_pct)}%"
+        (tw, th), bl = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+        cv2.rectangle(annotated_full, (x1, y1 - th - bl - 6), (x1 + tw + 10, y1), color_bgr, -1)
+        cv2.putText(annotated_full, label, (x1 + 5, y1 - bl - 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (15, 23, 42), 2, cv2.LINE_AA)
+
+        # บันทึก crop ที่มี annotation
+        annotated_crop = annotate_crop_image(cropped, stage_info, banana_counter, conf_pct)
+        ts_ms = int(time.time() * 1000) % 100000
+        crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
+        cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+
+        detections.append({
+            "id":          f"BN-{banana_counter:04d}",
+            "timestamp":   "image",
+            "stageKey":    stage_info["key"],
+            "stageLabel":  stage_info["labelTh"],
+            "badgeClass":  stage_info["badgeClass"],
+            "confidence":  conf_pct,
+            "roboflow": {
+                "detected":    True,
+                "class":       bcls,
+                "confidence":  round(bconf * 100, 1),
+                "box":         [round(bx, 1), round(by, 1), round(bw, 1), round(bh, 1)],
+            },
+            "bbox":        f"[{x1}, {y1}, {int(bw)}, {int(bh)}]",
+            "box_coords":  {"x": x1, "y": y1, "w": int(bw), "h": int(bh)},
+            "image":       f"/static/crops/{crop_filename}",
+        })
+        banana_counter += 1
+
+    # ถ้า Roboflow ไม่พบอะไรเลย → ใช้ทั้งภาพเป็น fallback
+    if not detections:
+        stage_key, stage_conf = classify_crop(bgr_image)
+        stage_info  = STAGES_INFO.get(stage_key, STAGES_INFO["Ripe"])
+        conf_pct    = round(stage_conf * 100, 1)
+        ts_ms = int(time.time() * 1000) % 100000
+        crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
+        annotated_crop = annotate_crop_image(bgr_image, stage_info, banana_counter, conf_pct)
+        cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+        detections.append({
+            "id":          f"BN-{banana_counter:04d}",
+            "timestamp":   "image",
+            "stageKey":    stage_info["key"],
+            "stageLabel":  stage_info["labelTh"],
+            "badgeClass":  stage_info["badgeClass"],
+            "confidence":  conf_pct,
+            "roboflow": {"detected": False, "class": "none", "confidence": 0.0, "box": None},
+            "bbox":        "[0, 0, 0, 0]",
+            "box_coords":  {"x": 0, "y": 0, "w": w_img, "h": h_img},
+            "image":       f"/static/crops/{crop_filename}",
+        })
+
+    # แปลงภาพ annotated full เป็น base64 JPEG
+    _, buf = cv2.imencode(".jpg", annotated_full, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    annotated_b64 = "data:image/jpeg;base64," + __import__("base64").b64encode(buf.tobytes()).decode()
+
+    return {
+        "detections":    detections,
+        "total":         len(detections),
+        "annotated_image": annotated_b64,
+        "image_size":    {"w": w_img, "h": h_img},
+    }
+
+
+# โหลด Client และโมเดล MobileNetV2 เมื่อเริ่มต้น
 init_roboflow_client()
 init_classifier_model()

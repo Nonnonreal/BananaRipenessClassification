@@ -71,7 +71,7 @@
                             Backend Connected
                         </span>
                     </div>
-                    <p class="text-xs text-slate-500 hidden sm:block">YOLOv8 Detection + Crop &rarr; MobileNetV2 Ripeness Classification</p>
+                    <p class="text-xs text-slate-500 hidden sm:block">YOLOv8s Detection + Crop &rarr; MobileNetV2 Ripeness Classification</p>
                 </div>
             </div>
 
@@ -109,7 +109,7 @@
                     <div id="step-2" class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 transition">
                         <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">2</div>
                         <div class="min-w-0">
-                            <div class="text-xs font-semibold text-slate-800 truncate">YOLOv8 Detect</div>
+                            <div class="text-xs font-semibold text-slate-800 truncate">YOLOv8s Detect</div>
                             <div class="text-[11px] text-slate-500 truncate">หาตำแหน่ง & Crop</div>
                         </div>
                     </div>
@@ -141,15 +141,18 @@
                 <!-- Card Header with Mode Switcher -->
                 <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-video text-amber-500"></i>
-                        <h2 class="font-semibold text-slate-800 text-sm sm:text-base">วิดีโอสายพาน & การตรวจจับ (Input & Live Preview)</h2>
+                        <i id="viewport-header-icon" class="fa-solid fa-video text-amber-500"></i>
+                        <h2 id="viewport-header-title" class="font-semibold text-slate-800 text-sm sm:text-base">วิดีโอสายพาน & การตรวจจับ (Input & Live Preview)</h2>
                     </div>
-                    <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-medium">
+                    <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-medium gap-0.5">
                         <button id="btn-mode-upload" onclick="switchMode('upload')" class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">
-                            <i class="fa-solid fa-upload mr-1"></i> อัปโหลดวิดีโอจริง (.mp4)
+                            <i class="fa-solid fa-upload mr-1"></i> อัปโหลดวิดีโอ
+                        </button>
+                        <button id="btn-mode-image" onclick="switchMode('image')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
+                            <i class="fa-solid fa-image mr-1"></i> วิเคราะห์รูปภาพ
                         </button>
                         <button id="btn-mode-demo" onclick="switchMode('demo')" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">
-                            <i class="fa-solid fa-bolt mr-1"></i> จำลองสายพาน (Demo)
+                            <i class="fa-solid fa-bolt mr-1"></i> จำลองสายพาน
                         </button>
                     </div>
                 </div>
@@ -167,7 +170,7 @@
                             <p class="text-sm font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์วิดีโอ หรือลากไฟล์มาวางที่นี่</p>
                             <p class="text-xs text-slate-500 mt-1">รองรับไฟล์ MP4, WebM, MOV, AVI (คลิปกล้วยเคลื่อนที่บนสายพาน)</p>
                             <span class="mt-3 px-3 py-1 text-xs font-medium text-amber-800 bg-amber-100/70 rounded-full border border-amber-200">
-                                <i class="fa-solid fa-microchip mr-1"></i> ส่งประมวลผลผ่าน Python Backend + Roboflow YOLOv8
+                                <i class="fa-solid fa-microchip mr-1"></i> ส่งประมวลผลผ่าน Python Backend + Roboflow YOLOv8s
                             </span>
                             <input id="video-file-input" type="file" accept="video/*" class="hidden" onchange="handleVideoUpload(event)">
                         </label>
@@ -182,7 +185,7 @@
                                     <i class="fa-solid fa-gear fa-spin"></i>
                                 </div>
                                 <h3 class="text-base font-bold text-amber-300">กำลังประมวลผลวิดีโอด้วย AI Pipeline...</h3>
-                                <p id="processing-status-text" class="text-xs text-slate-300 mt-1 max-w-sm">YOLOv8 กำลังตรวจหาพิกัดกล้วย และ MobileNetV2 กำลังประเมินระดับความสุก</p>
+                                <p id="processing-status-text" class="text-xs text-slate-300 mt-1 max-w-sm">YOLOv8s กำลังตรวจหาพิกัดกล้วย และ MobileNetV2 กำลังประเมินระดับความสุก</p>
                                 
                                 <div class="w-full max-w-md bg-slate-800 rounded-full h-3 mt-4 overflow-hidden border border-slate-700">
                                     <div id="processing-progress-bar" class="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
@@ -199,6 +202,69 @@
                         </div>
                     </div>
 
+                    <!-- Mode C: Single Image Analysis -->
+                    <div id="image-viewport" class="hidden w-full space-y-4">
+
+                        <!-- Demo image thumbnails -->
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                            <div class="flex items-center justify-between mb-2.5">
+                                <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-images text-amber-500"></i> ภาพตัวอย่างสำหรับทดสอบ (Demo Input)
+                                </span>
+                                <span class="text-[11px] text-slate-400">คลิกที่ภาพเพื่อส่งวิเคราะห์ทันที</span>
+                            </div>
+                            <div id="demo-image-grid" class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                <!-- injected by JS -->
+                                <span class="text-xs text-slate-400 italic col-span-full">กำลังโหลดภาพตัวอย่าง...</span>
+                            </div>
+                        </div>
+
+                        <!-- Upload dropzone -->
+                        <label id="img-upload-dropzone" for="image-file-input"
+                            class="flex flex-col items-center justify-center w-full py-8 border-2 border-dashed border-slate-300 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/30 rounded-xl cursor-pointer transition text-center px-4">
+                            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-700">คลิกเพื่ออัปโหลดรูปภาพกล้วย หรือลากไฟล์มาวางที่นี่</p>
+                            <p class="text-xs text-slate-500 mt-0.5">รองรับไฟล์ JPG, PNG, WebP (ตรวจจับได้ทั้งกล้วยเดี่ยวและหวีกล้วย)</p>
+                            <span class="mt-2.5 px-3 py-0.5 text-[11px] font-medium text-amber-800 bg-amber-100/80 rounded-full border border-amber-200">
+                                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Roboflow Bounding Box + MobileNetV2 4 คลาส
+                            </span>
+                            <input id="image-file-input" type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                        </label>
+
+                        <!-- Preview + Result area -->
+                        <div id="img-result-area" class="hidden space-y-3">
+                            <!-- Annotated full image -->
+                            <div class="relative rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center min-h-[220px]">
+                                <img id="img-annotated" src="" alt="Annotated" class="w-full max-h-[380px] object-contain">
+                                
+                                <!-- Analyzing spinner overlay -->
+                                <div id="img-analyzing-overlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20">
+                                    <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl animate-pulse border border-amber-500/30">
+                                        <i class="fa-solid fa-gear fa-spin"></i>
+                                    </div>
+                                    <p class="text-sm font-bold text-amber-300">กำลังประมวลผลด้วย AI Pipeline...</p>
+                                    <p class="text-xs text-slate-300">Roboflow Detection &rarr; MobileNetV2 Classification</p>
+                                </div>
+
+                                <button onclick="clearImageAnalysis()" class="absolute top-3 right-3 px-2.5 py-1.5 rounded-lg bg-black/70 hover:bg-red-600 text-white text-xs font-medium backdrop-blur-sm transition z-10">
+                                    <i class="fa-solid fa-xmark mr-1"></i> เปลี่ยนภาพ
+                                </button>
+                            </div>
+
+                            <!-- Per-detection result cards -->
+                            <div>
+                                <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                                    ผลการตรวจจับในภาพ (Detected Bananas)
+                                </h4>
+                                <div id="img-detection-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <!-- injected by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Mode A: Interactive Conveyor Belt Simulation Canvas (Demo) -->
                     <div id="demo-viewport" class="hidden relative w-full aspect-video bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-800 shadow-inner">
                         <canvas id="conveyorCanvas" class="w-full h-full block"></canvas>
@@ -210,14 +276,14 @@
                                 <span id="hud-status">STANDBY</span>
                             </span>
                             <span class="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-amber-300 text-[11px] font-mono border border-white/10">
-                                YOLOv8 + MobileNetV2
+                                YOLOv8s + MobileNetV2
                             </span>
                         </div>
                     </div>
 
                     <!-- Playback & Detection Controls -->
-                    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-                        <div class="flex items-center gap-2">
+                    <div id="playback-controls-bar" class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <div id="video-action-buttons" class="flex items-center gap-2">
                             <button id="btn-toggle-run" onclick="toggleProcessing()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-900 font-semibold text-sm shadow-sm transition flex items-center gap-2">
                                 <i id="icon-toggle-run" class="fa-solid fa-play"></i>
                                 <span id="text-toggle-run">เริ่มตรวจจับ (Start Inference)</span>
@@ -225,6 +291,16 @@
                             <button onclick="triggerManualCapture()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition flex items-center gap-1.5" title="จับภาพและ Crop ทันที">
                                 <i class="fa-solid fa-crop-simple"></i>
                                 <span class="hidden sm:inline">Crop เฟรมนี้</span>
+                            </button>
+                        </div>
+                        <div id="image-action-buttons" class="hidden flex items-center gap-2">
+                            <button onclick="reanalyzeCurrentImage()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-900 font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                                <i class="fa-solid fa-rotate-right"></i>
+                                <span>วิเคราะห์ภาพนี้ซ้ำ</span>
+                            </button>
+                            <button onclick="clearImageAnalysis()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-trash-can"></i>
+                                <span class="hidden sm:inline">ล้างภาพ</span>
                             </button>
                         </div>
 
@@ -346,9 +422,9 @@
                         <div>
                             <div class="flex justify-between text-xs mb-1">
                                 <span class="text-slate-600 font-medium">Confidence Threshold</span>
-                                <span id="conf-val" class="font-mono font-semibold text-indigo-600">0.75</span>
+                                <span id="conf-val" class="font-mono font-semibold text-indigo-600">0.50</span>
                             </div>
-                            <input type="range" id="conf-slider" min="0.50" max="0.95" step="0.05" value="0.75" oninput="document.getElementById('conf-val').textContent = parseFloat(this.value).toFixed(2)" class="w-full accent-indigo-600 cursor-pointer">
+                            <input type="range" id="conf-slider" min="0.25" max="0.95" step="0.05" value="0.50" oninput="document.getElementById('conf-val').textContent = parseFloat(this.value).toFixed(2)" class="w-full accent-indigo-600 cursor-pointer">
                         </div>
 
                         <div>
@@ -362,7 +438,7 @@
                         <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
                             <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                                 <div class="text-slate-400">Detection Model</div>
-                                <div id="info-detector" class="font-semibold text-slate-700 mt-0.5 truncate">YOLOv8 (Roboflow)</div>
+                                <div id="info-detector" class="font-semibold text-slate-700 mt-0.5 truncate">YOLOv8s (Roboflow)</div>
                             </div>
                             <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                                 <div class="text-slate-400">Classifier Model</div>
@@ -384,7 +460,7 @@
                         <i class="fa-solid fa-images text-amber-500"></i>
                         ผลลัพธ์ภาพที่ Crop & วาด Bounding Box (Output Detections)
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">แสดงภาพที่ถูก Crop จาก YOLOv8 พร้อมกรอบ Bounding Box และ Label ระดับความสุกจาก MobileNetV2</p>
+                    <p class="text-xs text-slate-500 mt-0.5">แสดงภาพที่ถูก Crop จาก YOLOv8s พร้อมกรอบ Bounding Box และ Label ระดับความสุกจาก MobileNetV2</p>
                 </div>
 
                 <!-- Filter Pills & View Switch -->
@@ -454,7 +530,7 @@
     <footer class="bg-white border-t border-slate-200 py-4 mt-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
             <div>BananaVision AI • ระบบคัดแยกคุณภาพผลผลิตทางการเกษตร</div>
-            <div>Architecture: <span class="font-mono text-slate-700">YOLOv8 (Object Detection) &rarr; Crop &rarr; MobileNetV2 (Classification)</span></div>
+            <div>Architecture: <span class="font-mono text-slate-700">YOLOv8s (Object Detection) &rarr; Crop &rarr; MobileNetV2 (Classification)</span></div>
         </div>
     </footer>
 
@@ -552,7 +628,9 @@
                     const pill = document.getElementById('backend-status-pill');
                     if (data.roboflow.configured) {
                         pill.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
-                        pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>Roboflow + MobileNetV2 Ready';
+                        pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>YOLOv8s (${data.roboflow.model_id}) + MobileNetV2 Ready`;
+                        document.getElementById('info-detector').textContent = `YOLOv8s (${data.roboflow.model_id})`;
+                        document.getElementById('info-detector').title = `Roboflow Model: ${data.roboflow.model_id} (YOLOv8s)`;
                     } else {
                         pill.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200';
                         pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>Ready (Fallback CV Active - ใส่ Key ใน .env)';
@@ -738,6 +816,18 @@
         let simulatedBananas = [];
         let lastSpawnTime = 0;
 
+        // --- Preload Real Banana Images for Conveyor Simulation ---
+        const demoBananaImages = {
+            Unripe: new Image(),
+            Ripe: new Image(),
+            Overripe: new Image(),
+            Rotten: new Image()
+        };
+        demoBananaImages.Unripe.src = '/static/demo_bananas/unripe.png';
+        demoBananaImages.Ripe.src = '/static/demo_bananas/ripe.png';
+        demoBananaImages.Overripe.src = '/static/demo_bananas/overripe.png';
+        demoBananaImages.Rotten.src = '/static/demo_bananas/rotten.png';
+
         function resizeCanvas() {
             if (canvas && canvas.parentElement) {
                 const rect = canvas.parentElement.getBoundingClientRect();
@@ -749,18 +839,21 @@
 
         class SimulatedBanana {
             constructor(canvasWidth, canvasHeight) {
-                const keys = Object.keys(STAGES);
+                const keys = ['Unripe', 'Ripe', 'Overripe', 'Rotten'];
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                this.visualKey = randomKey;
                 this.stage = STAGES[randomKey];
                 this.id = ++bananaCounter;
-                this.confidence = (0.86 + Math.random() * 0.13).toFixed(2);
-                this.w = Math.max(95, canvasWidth * 0.16);
-                this.h = Math.max(55, canvasHeight * 0.17);
+                this.confidence = 0.85;
+                this.w = Math.max(115, canvasWidth * 0.17);
+                this.h = Math.max(65, canvasHeight * 0.18);
                 this.x = -this.w - 20;
-                this.y = (canvasHeight * 0.25) + Math.random() * (canvasHeight * 0.45);
+                this.y = (canvasHeight * 0.25) + Math.random() * (canvasHeight * 0.42);
                 this.speed = Math.max(1.8, canvasWidth * 0.0032);
-                this.angle = (Math.random() - 0.5) * 0.35;
+                this.angle = (Math.random() - 0.5) * 0.22;
                 this.captured = false;
+                this.aiProcessed = false;
+                this.roboflow = null;
             }
 
             update() {
@@ -775,31 +868,22 @@
                 targetCtx.translate(cx, cy);
                 targetCtx.rotate(this.angle);
 
-                targetCtx.beginPath();
-                targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
-                targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
-                targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
-                targetCtx.closePath();
-                targetCtx.fillStyle = this.stage.bodyColor;
-                targetCtx.fill();
-                targetCtx.lineWidth = 2;
-                targetCtx.strokeStyle = this.stage.tipColor;
-                targetCtx.stroke();
-
-                targetCtx.fillStyle = this.stage.tipColor;
-                targetCtx.fillRect(-this.w * 0.45, -this.h * 0.2, 6, 6);
-                targetCtx.fillRect(this.w * 0.40, -this.h * 0.18, 5, 5);
-
-                if (this.stage.spots) {
-                    targetCtx.fillStyle = this.stage.isRotten ? '#1c1917' : '#78350f';
-                    const spotCoords = this.stage.isRotten
-                        ? [[-18, 2], [-10, 6], [0, 8], [12, 6], [22, 1], [-5, 12], [8, 11], [-12, -2]]
-                        : [[-12, 4], [5, 8], [18, 2], [-2, 11], [10, 4]];
-                    spotCoords.forEach(([sx, sy]) => {
-                        targetCtx.beginPath();
-                        targetCtx.arc(sx, sy, this.stage.isRotten ? 4.5 : 2.3, 0, Math.PI * 2);
-                        targetCtx.fill();
-                    });
+                // 1. วาดด้วยรูปกล้วยจริง (Real Banana Photo)
+                const realImg = demoBananaImages[this.visualKey] || demoBananaImages[this.stage.key];
+                if (realImg && realImg.complete && realImg.naturalWidth > 0) {
+                    targetCtx.drawImage(realImg, -this.w / 2, -this.h / 2, this.w, this.h);
+                } else {
+                    // Fallback วาดทรงโค้งหากรูปกำลังดาวน์โหลด
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
+                    targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
+                    targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
+                    targetCtx.closePath();
+                    targetCtx.fillStyle = this.stage.bodyColor;
+                    targetCtx.fill();
+                    targetCtx.lineWidth = 2;
+                    targetCtx.strokeStyle = this.stage.tipColor;
+                    targetCtx.stroke();
                 }
 
                 targetCtx.restore();
@@ -818,7 +902,10 @@
 
                     if (drawLabel) {
                         targetCtx.save();
-                        const labelText = `#${String(this.id).padStart(2, '0')} ${this.stage.key} ${Math.round(this.confidence * 100)}%`;
+                        let labelText = `#${String(this.id).padStart(2, '0')} ${this.stage.key} ${Math.round(this.confidence * 100)}%`;
+                        if (this.roboflow && this.roboflow.detected) {
+                            labelText += ` [RF: ${Math.round(this.roboflow.confidence)}%]`;
+                        }
                         targetCtx.font = 'bold 11px Inter, sans-serif';
                         const textMetrics = targetCtx.measureText(labelText);
                         const padX = 6;
@@ -875,24 +962,73 @@
         }
 
         function createCroppedSnapshot(banana) {
-            const pad = 16;
-            const cropX = Math.max(0, banana.x - pad);
-            const cropY = Math.max(0, banana.y - pad - 14);
-            const cropW = Math.min(canvas.width - cropX, banana.w + pad * 2);
-            const cropH = Math.min(canvas.height - cropY, banana.h + pad * 2 + 14);
-
             const offCanvas = document.createElement('canvas');
-            offCanvas.width = 240;
-            offCanvas.height = 160;
+            offCanvas.width = 280;
+            offCanvas.height = 170;
             const offCtx = offCanvas.getContext('2d');
 
-            offCtx.drawImage(
-                canvas,
-                cropX, cropY, cropW, cropH,
-                0, 0, offCanvas.width, offCanvas.height
-            );
+            // พื้นหลังสายพานสีเข้ม
+            offCtx.fillStyle = '#1e293b';
+            offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
 
-            return offCanvas.toDataURL('image/png');
+            // วาดภาพกล้วยจริงสำหรับส่งเข้า Roboflow
+            offCtx.save();
+            offCtx.translate(offCanvas.width / 2, offCanvas.height / 2);
+            offCtx.rotate(banana.angle);
+            const realImg = demoBananaImages[banana.visualKey] || demoBananaImages[banana.stage.key];
+            if (realImg && realImg.complete && realImg.naturalWidth > 0) {
+                const bw = Math.min(220, banana.w * 1.15);
+                const bh = Math.min(130, banana.h * 1.15);
+                offCtx.drawImage(realImg, -bw / 2, -bh / 2, bw, bh);
+            }
+            offCtx.restore();
+
+            return offCanvas.toDataURL('image/jpeg', 0.92);
+        }
+
+        async function analyzeDemoBananaWithRealAI(banana) {
+            highlightPipelineStep(2); // Roboflow Detection
+            const snapshot = createCroppedSnapshot(banana);
+            const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+            const threshold = parseFloat(document.getElementById('conf-slider').value) || 0.35;
+
+            try {
+                const response = await fetch('/api/process-demo-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: snapshot,
+                        id: banana.id,
+                        timestamp_sec: parseFloat(elapsedSec),
+                        conf_threshold: threshold
+                    })
+                });
+
+                const res = await response.json();
+                if (res.success && res.detection) {
+                    const rec = res.detection;
+                    
+                    // อัปเดตข้อมูลผลลัพธ์จริงจาก MobileNetV2 และ Roboflow
+                    if (STAGES[rec.stageKey]) {
+                        banana.stage = STAGES[rec.stageKey];
+                    }
+                    banana.confidence = rec.confidence / 100.0;
+                    banana.aiProcessed = true;
+                    if (rec.roboflow && rec.roboflow.detected) {
+                        banana.roboflow = rec.roboflow;
+                    }
+
+                    highlightPipelineStep(3); // MobileNetV2 Classification
+                    setTimeout(() => highlightPipelineStep(4), 300);
+
+                    // บันทึกลงระบบรายงานและตาราง
+                    detectionRecords.unshift(rec);
+                    updateDashboardStats();
+                    renderOutputs();
+                }
+            } catch (err) {
+                console.error('Real AI demo processing error:', err);
+            }
         }
 
         function animateConveyor(timestamp) {
@@ -901,7 +1037,7 @@
             beltOffset += 2.2;
             drawConveyorBackground();
 
-            if (timestamp - lastSpawnTime > 1700) {
+            if (timestamp - lastSpawnTime > 1800) {
                 simulatedBananas.push(new SimulatedBanana(canvas.width, canvas.height));
                 lastSpawnTime = timestamp;
             }
@@ -919,21 +1055,8 @@
                     if (!showBox || !showLabel) {
                         banana.draw(ctx, true, true);
                     }
-                    const snapshot = createCroppedSnapshot(banana);
-                    const record = {
-                        id: `BN-${String(banana.id).padStart(4, '0')}`,
-                        timestamp: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
-                        stageKey: banana.stage.key,
-                        stageLabel: banana.stage.labelTh,
-                        badgeClass: banana.stage.badgeClass,
-                        confidence: (banana.confidence * 100).toFixed(1),
-                        bbox: `[${Math.round(banana.x)}, ${Math.round(banana.y)}, ${Math.round(banana.w)}, ${Math.round(banana.h)}]`,
-                        image: snapshot
-                    };
-                    detectionRecords.unshift(record);
-                    updateDashboardStats();
-                    renderOutputs();
-                    highlightPipelineStep(3);
+                    // ส่งภาพกล้วยจริงเข้า Roboflow + MobileNetV2 จริง
+                    analyzeDemoBananaWithRealAI(banana);
                 }
             });
 
@@ -951,24 +1074,11 @@
                     b.draw(ctx, true, true);
                 }
                 const target = simulatedBananas[0];
-                const snap = createCroppedSnapshot(target);
-                const record = {
-                    id: `BN-${String(target.id).padStart(4, '0')}`,
-                    timestamp: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
-                    stageKey: target.stage.key,
-                    stageLabel: target.stage.labelTh,
-                    badgeClass: target.stage.badgeClass,
-                    confidence: (target.confidence * 100).toFixed(1),
-                    bbox: `[${Math.round(target.x)}, ${Math.round(target.y)}, ${Math.round(target.w)}, ${Math.round(target.h)}]`,
-                    image: snap
-                };
-                detectionRecords.unshift(record);
-                updateDashboardStats();
-                renderOutputs();
-                showToast(`Crop ภาพ ${target.stage.labelTh} สำเร็จ`, 'success');
+                target.captured = true;
+                analyzeDemoBananaWithRealAI(target);
+                showToast(`ส่งภาพ #${target.id} เข้า Roboflow และ MobileNetV2 ประมวลผลจริงแล้ว`, 'success');
             } else {
                 showToast('กำลังจับภาพและประมวลผลเฟรมปัจจุบัน...', 'info');
-                // You can take a snapshot of the current video frame
             }
         }
 
@@ -978,22 +1088,53 @@
             currentMode = mode;
 
             const btnUpload = document.getElementById('btn-mode-upload');
-            const btnDemo = document.getElementById('btn-mode-demo');
+            const btnImage  = document.getElementById('btn-mode-image');
+            const btnDemo   = document.getElementById('btn-mode-demo');
             const viewUpload = document.getElementById('upload-viewport');
-            const viewDemo = document.getElementById('demo-viewport');
+            const viewImage  = document.getElementById('image-viewport');
+            const viewDemo   = document.getElementById('demo-viewport');
+
+            const headerIcon  = document.getElementById('viewport-header-icon');
+            const headerTitle = document.getElementById('viewport-header-title');
+            const videoBtns   = document.getElementById('video-action-buttons');
+            const imageBtns   = document.getElementById('image-action-buttons');
+
+            const activeClass   = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
+            const inactiveClass = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+
+            btnUpload.className = inactiveClass;
+            btnImage.className  = inactiveClass;
+            btnDemo.className   = inactiveClass;
+            viewUpload.classList.add('hidden');
+            viewImage.classList.add('hidden');
+            viewDemo.classList.add('hidden');
 
             if (mode === 'upload') {
-                btnUpload.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
-                btnDemo.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                btnUpload.className = activeClass;
                 viewUpload.classList.remove('hidden');
-                viewDemo.classList.add('hidden');
+                if (headerIcon) headerIcon.className = 'fa-solid fa-video text-amber-500';
+                if (headerTitle) headerTitle.textContent = 'วิดีโอสายพาน & การตรวจจับ (Video Input & Live Preview)';
+                if (videoBtns) videoBtns.classList.remove('hidden');
+                if (imageBtns) imageBtns.classList.add('hidden');
+                highlightPipelineStep(1);
+            } else if (mode === 'image') {
+                btnImage.className = activeClass;
+                viewImage.classList.remove('hidden');
+                if (headerIcon) headerIcon.className = 'fa-solid fa-image text-amber-500';
+                if (headerTitle) headerTitle.textContent = 'วิเคราะห์รูปภาพกล้วย (Single Image Input & Analysis)';
+                if (videoBtns) videoBtns.classList.add('hidden');
+                if (imageBtns) imageBtns.classList.remove('hidden');
+                highlightPipelineStep(1);
             } else {
-                btnDemo.className = 'px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition';
-                btnUpload.className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+                btnDemo.className = activeClass;
                 viewDemo.classList.remove('hidden');
-                viewUpload.classList.add('hidden');
+                if (headerIcon) headerIcon.className = 'fa-solid fa-bolt text-amber-500';
+                if (headerTitle) headerTitle.textContent = 'จำลองสายพานกล้วย (Conveyor Belt Simulation)';
+                if (videoBtns) videoBtns.classList.remove('hidden');
+                if (imageBtns) imageBtns.classList.add('hidden');
                 resizeCanvas();
                 drawConveyorBackground();
+                highlightPipelineStep(1);
             }
         }
 
@@ -1091,8 +1232,10 @@
                                 </span>
                             </div>
                             <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/70">
-                                <span>Conf: <strong class="text-slate-700 font-mono">${item.confidence}%</strong></span>
-                                <span class="font-mono truncate max-w-[115px]" title="Bounding Box [x,y,w,h]">${item.bbox}</span>
+                                <span>MobileNetV2: <strong class="text-slate-700 font-mono">${item.confidence}%</strong></span>
+                                <span class="font-mono text-[10px] text-blue-600 font-medium truncate max-w-[110px]" title="${item.roboflow && item.roboflow.detected ? 'Roboflow: ' + item.roboflow.class + ' (' + item.roboflow.confidence + '%)' : item.bbox}">
+                                    ${item.roboflow && item.roboflow.detected ? `RF: ${item.roboflow.confidence}%` : item.bbox}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1121,7 +1264,10 @@
                             </span>
                         </td>
                         <td class="py-2.5 px-4 font-mono text-xs font-semibold text-slate-700">${item.confidence}%</td>
-                        <td class="py-2.5 px-4 font-mono text-xs text-slate-500">${item.bbox}</td>
+                        <td class="py-2.5 px-4 font-mono text-xs text-slate-500">
+                            <div>${item.bbox}</div>
+                            ${item.roboflow && item.roboflow.detected ? `<span class="inline-block mt-0.5 px-1.5 py-0.2 text-[10px] bg-blue-50 text-blue-700 rounded border border-blue-200">Roboflow: ${item.roboflow.class} (${item.roboflow.confidence}%)</span>` : ''}
+                        </td>
                     </tr>
                 `).join('');
             }
@@ -1150,7 +1296,7 @@
 
             highlightPipelineStep(4);
 
-            const headers = ['Banana_ID', 'Timestamp', 'Ripeness_Class_EN', 'Ripeness_Label_TH', 'Confidence(%)', 'BBox_XYWH'];
+            const headers = ['Banana_ID', 'Timestamp', 'Ripeness_Class_EN', 'Ripeness_Label_TH', 'MobileNetV2_Confidence(%)', 'YOLOv8s_BBox_XYWH'];
             const rows = detectionRecords.map(r => [
                 r.id,
                 r.timestamp,
@@ -1180,7 +1326,169 @@
         window.onload = function () {
             checkBackendStatus();
             highlightPipelineStep(1);
+            loadDemoImages();
         };
+
+        // =====================================================================
+        // IMAGE ANALYSIS MODE — functions
+        // =====================================================================
+        const STAGE_BADGE = {
+            Unripe:   { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300', dot: 'bg-emerald-500' },
+            Ripe:     { bg: 'bg-amber-100',   text: 'text-amber-800',   border: 'border-amber-300',   dot: 'bg-amber-500'   },
+            Overripe: { bg: 'bg-orange-100',  text: 'text-orange-800',  border: 'border-orange-300',  dot: 'bg-orange-500'  },
+            Rotten:   { bg: 'bg-rose-100',    text: 'text-rose-800',    border: 'border-rose-300',    dot: 'bg-rose-500'    },
+        };
+
+        let activeImageSource = null; // { type: 'demo', filename, url, label } or { type: 'file', file, url, label }
+
+        async function loadDemoImages() {
+            try {
+                const res = await fetch('/api/demo-images');
+                const data = await res.json();
+                const grid = document.getElementById('demo-image-grid');
+                if (!data.success || !data.images.length) {
+                    grid.innerHTML = '<span class="text-xs text-slate-400 italic col-span-full">ไม่พบภาพตัวอย่าง</span>';
+                    return;
+                }
+                grid.innerHTML = data.images.map(img => `
+                    <button onclick="useDemoImage('${img.filename}', '${img.url}', '${img.label}')"
+                        class="relative group flex flex-col items-center gap-1.5 p-2 rounded-xl border border-slate-200 hover:border-amber-400 hover:shadow-md transition bg-white cursor-pointer"
+                        title="${img.label}">
+                        <div class="w-full h-16 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+                            <img src="${img.url}" alt="${img.label}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200">
+                        </div>
+                        <span class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${img.badge || 'bg-slate-100 text-slate-700'} max-w-full truncate text-center">
+                            ${img.label}
+                        </span>
+                    </button>
+                `).join('');
+            } catch (e) {
+                console.error('loadDemoImages error:', e);
+            }
+        }
+
+        async function useDemoImage(filename, url, label) {
+            activeImageSource = { type: 'demo', filename: filename, url: url, label: label };
+            showImagePreview(url);
+            showToast(`📸 โหลดภาพตัวอย่าง: ${label}`, 'info');
+            await reanalyzeCurrentImage();
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const objectUrl = URL.createObjectURL(file);
+            activeImageSource = { type: 'file', file: file, url: objectUrl, label: file.name };
+            showImagePreview(objectUrl);
+            reanalyzeCurrentImage();
+        }
+
+        function showImagePreview(src) {
+            document.getElementById('img-upload-dropzone').classList.add('hidden');
+            document.getElementById('img-annotated').src = src;
+            document.getElementById('img-result-area').classList.remove('hidden');
+            document.getElementById('img-analyzing-overlay').classList.remove('hidden');
+            document.getElementById('img-detection-cards').innerHTML = '';
+        }
+
+        function clearImageAnalysis() {
+            activeImageSource = null;
+            document.getElementById('img-result-area').classList.add('hidden');
+            document.getElementById('img-upload-dropzone').classList.remove('hidden');
+            document.getElementById('image-file-input').value = '';
+            document.getElementById('img-annotated').src = '';
+            document.getElementById('img-detection-cards').innerHTML = '';
+            highlightPipelineStep(1);
+        }
+
+        async function reanalyzeCurrentImage() {
+            if (!activeImageSource) {
+                showToast('กรุณาเลือกภาพตัวอย่างหรืออัปโหลดรูปภาพก่อน', 'warning');
+                return;
+            }
+            document.getElementById('img-analyzing-overlay').classList.remove('hidden');
+            highlightPipelineStep(2);
+
+            const confEl = document.getElementById('conf-slider');
+            const conf = confEl ? parseFloat(confEl.value) : 0.35;
+
+            try {
+                let res;
+                if (activeImageSource.type === 'demo') {
+                    res = await fetch('/api/analyze-image', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ demo_filename: activeImageSource.filename, conf_threshold: conf })
+                    });
+                } else {
+                    const formData = new FormData();
+                    formData.append('image', activeImageSource.file);
+                    formData.append('conf_threshold', conf);
+                    res = await fetch('/api/analyze-image', { method: 'POST', body: formData });
+                }
+                const data = await res.json();
+                handleImageResult(data);
+            } catch (e) {
+                document.getElementById('img-analyzing-overlay').classList.add('hidden');
+                showToast('❌ เกิดข้อผิดพลาดในการประมวลผลภาพ', 'error');
+            }
+        }
+
+        function handleImageResult(data) {
+            document.getElementById('img-analyzing-overlay').classList.add('hidden');
+            if (!data.success) {
+                showToast(`❌ ${data.error || 'วิเคราะห์ไม่สำเร็จ'}`, 'error');
+                return;
+            }
+            // อัปเดตภาพ annotated ที่มี bbox วาดแล้ว
+            if (data.annotated_image) {
+                document.getElementById('img-annotated').src = data.annotated_image;
+            }
+
+            const detections = data.detections || [];
+            const cards = document.getElementById('img-detection-cards');
+
+            if (!detections.length) {
+                cards.innerHTML = `<div class="col-span-2 text-center py-4 text-sm text-slate-500">
+                    <i class="fa-solid fa-circle-exclamation text-amber-400 mr-1"></i>ไม่พบกล้วยในภาพ</div>`;
+                return;
+            }
+
+            cards.innerHTML = detections.map((d, i) => {
+                const b = STAGE_BADGE[d.stageKey] || STAGE_BADGE['Ripe'];
+                const rfConf = d.roboflow?.detected ? `<span class="text-slate-500">RF: ${d.roboflow.confidence}% · ${d.roboflow.class}</span>` : `<span class="text-slate-400">RF: fallback</span>`;
+                return `
+                <div class="rounded-xl border ${b.border} ${b.bg} p-3 flex gap-3 items-start">
+                    <img src="${d.image}" alt="crop"
+                        class="w-16 h-16 object-cover rounded-lg border ${b.border} flex-shrink-0 shadow-sm">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-2 h-2 rounded-full ${b.dot} flex-shrink-0"></span>
+                            <span class="font-semibold text-sm ${b.text}">${d.stageLabel}</span>
+                            <span class="ml-auto text-xs font-mono font-bold ${b.text}">${d.confidence}%</span>
+                        </div>
+                        <div class="text-[11px] space-y-0.5">
+                            <div class="font-medium text-slate-700">MobileNetV2: ${d.confidence}%</div>
+                            <div>${rfConf}</div>
+                            <div class="text-slate-400 font-mono truncate">BBox: ${d.bbox}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            // เพิ่มผลลัพธ์เข้า detectionRecords และอัปเดต Gallery/Table
+            detections.forEach(d => {
+                const imgCounter = detectionRecords.length + 1;
+                const record = { ...d, id: `BN-${String(imgCounter).padStart(4, '0')}` };
+                detectionRecords.unshift(record);
+            });
+            updateDashboardStats();
+            renderOutputs();
+            highlightPipelineStep(4);
+
+            const total = detections.length;
+            showToast(`✅ พบกล้วย ${total} อัน — วิเคราะห์สำเร็จ`, 'success');
+        }
     </script>
 </body>
 </html>
