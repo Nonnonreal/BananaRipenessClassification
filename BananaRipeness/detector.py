@@ -1,6 +1,7 @@
 import os
 import cv2
 import time
+import base64
 import numpy as np
 from PIL import Image
 from dotenv import load_dotenv
@@ -288,18 +289,30 @@ def annotate_crop_image(cropped_banana, stage_info, banana_id, conf_pct):
     return annotated
 
 
+def crop_to_base64(bgr_image, quality=85):
+    """
+    แปลงภาพ BGR เป็น Data URL (Base64 JPEG) ในหน่วยความจำ (RAM)
+    เพื่อส่งให้ Browser นำไปแคชและแสดงผลได้ทันที โดยไม่ต้องเขียนไฟล์ลงดิสก์
+    """
+    if bgr_image is None or bgr_image.size == 0:
+        return ""
+    success, buffer = cv2.imencode(".jpg", bgr_image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not success:
+        return ""
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.tobytes()).decode("utf-8")
+
+
 def process_demo_banana(bgr_snapshot, banana_counter=1, conf_threshold=0.35, output_crops_dir=None, timestamp_sec=0.0):
     """
     ประมวลผลกล้วยในโหมดสายพานจำลอง (Demo):
     1. ส่งภาพเข้า Roboflow หา Bounding Box จริง
     2. ทำการ Crop ภาพตาม Bounding Box ของ Roboflow
     3. ส่งภาพ Crop เข้าโมเดล MobileNetV2 จำแนก 4 ระดับความสุกจริง (Fresh, Unripe, Ripe, Overripe)
-    4. วาด Bounding Box & Annotation ลงบนภาพ Crop บันทึกลง static/crops/
-    5. ส่งข้อมูลผลลัพธ์กลับไปยังหน้าบ้าน
+    4. วาด Bounding Box & Annotation ลงบนภาพ Crop แปลงเป็น Base64 Data URL แคชบน Browser
+    5. ส่งข้อมูลผลลัพธ์กลับไปยังหน้าบ้าน (Zero-disk / ไม่บันทึกลงดิสก์ static/crops)
     """
-    if output_crops_dir is None:
-        output_crops_dir = os.path.join(os.path.dirname(__file__), "static", "crops")
-    os.makedirs(output_crops_dir, exist_ok=True)
+    if output_crops_dir:
+        os.makedirs(output_crops_dir, exist_ok=True)
     
     h_img, w_img = bgr_snapshot.shape[:2]
     
@@ -360,11 +373,14 @@ def process_demo_banana(bgr_snapshot, banana_counter=1, conf_threshold=0.35, out
     stage_info = STAGES_INFO.get(stage_key, STAGES_INFO["Ripe"])
     conf_pct = round(stage_conf * 100, 1)
     
-    # 3. วาด Bounding Box & บันทึกภาพลง static/crops
+    # 3. วาด Bounding Box & แปลงภาพเป็น Base64 Data URL ใน RAM
     annotated_crop = annotate_crop_image(cropped, stage_info, banana_counter, conf_pct)
-    crop_filename = f"crop_demo_{banana_counter:04d}_{int(time.time() * 1000) % 100000}.jpg"
-    crop_path = os.path.join(output_crops_dir, crop_filename)
-    cv2.imwrite(crop_path, annotated_crop)
+    crop_image_url = crop_to_base64(annotated_crop)
+    if output_crops_dir:
+        crop_filename = f"crop_demo_{banana_counter:04d}_{int(time.time() * 1000) % 100000}.jpg"
+        crop_path = os.path.join(output_crops_dir, crop_filename)
+        cv2.imwrite(crop_path, annotated_crop)
+        crop_image_url = f"/static/crops/{crop_filename}"
     
     return {
         "id": f"BN-{banana_counter:04d}",
@@ -376,15 +392,16 @@ def process_demo_banana(bgr_snapshot, banana_counter=1, conf_threshold=0.35, out
         "roboflow": roboflow_info,
         "bbox": f"[{int(x1)}, {int(y1)}, {int(bw)}, {int(bh)}]",
         "box_coords": {"x": int(x1), "y": int(y1), "w": int(bw), "h": int(bh)},
-        "image": f"/static/crops/{crop_filename}"
+        "image": crop_image_url
     }
 
 
-def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, conf_threshold=DEFAULT_CONF_THRESHOLD, output_crops_dir="static/crops"):
+def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, conf_threshold=DEFAULT_CONF_THRESHOLD, output_crops_dir=None):
     """
     ประมวลผลวิดีโอแบบ Generator ส่งผลลัพธ์ผ่าน Roboflow + MobileNetV2 100%
     """
-    os.makedirs(output_crops_dir, exist_ok=True)
+    if output_crops_dir:
+        os.makedirs(output_crops_dir, exist_ok=True)
     
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -449,9 +466,12 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
                 conf_pct = round(stage_conf * 100, 1)
                 
                 annotated_crop = annotate_crop_image(cropped, stage_info, banana_counter, conf_pct)
-                crop_filename = f"crop_bn_{banana_counter:04d}_{frame_count}.jpg"
-                crop_path = os.path.join(output_crops_dir, crop_filename)
-                cv2.imwrite(crop_path, annotated_crop)
+                crop_image_url = crop_to_base64(annotated_crop)
+                if output_crops_dir:
+                    crop_filename = f"crop_bn_{banana_counter:04d}_{frame_count}.jpg"
+                    crop_path = os.path.join(output_crops_dir, crop_filename)
+                    cv2.imwrite(crop_path, annotated_crop)
+                    crop_image_url = f"/static/crops/{crop_filename}"
                 
                 detection_record = {
                     "id": f"BN-{banana_counter:04d}",
@@ -461,7 +481,7 @@ def process_video_generator(video_path, frame_interval=DEFAULT_FRAME_INTERVAL, c
                     "badgeClass": stage_info["badgeClass"],
                     "confidence": conf_pct,
                     "bbox": f"[{int(x1)}, {int(y1)}, {int(w)}, {int(h)}]",
-                    "image": f"/static/crops/{crop_filename}",
+                    "image": crop_image_url,
                     "frame": frame_count,
                     "progress": progress_pct
                 }
@@ -495,12 +515,11 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
     วิเคราะห์ภาพนิ่ง 1 ภาพแบบ Full Pipeline:
     1. ส่งทั้งภาพเข้า Roboflow → ได้ Bounding Box ของกล้วยทุกอัน
     2. Crop ตาม BBox แต่ละอัน → ส่งเข้า MobileNetV2 จำแนก 4 คลาส
-    3. วาด annotation + bbox บนภาพ full + บนภาพ crop แต่ละชิ้น
+    3. วาด annotation + bbox บนภาพ full + แปลง crop แต่ละชิ้นเป็น Base64 Data URL (RAM)
     4. ส่งคืนผลลัพธ์ทุก detection + ภาพ annotated full (base64)
     """
-    if output_crops_dir is None:
-        output_crops_dir = os.path.join(os.path.dirname(__file__), "static", "crops")
-    os.makedirs(output_crops_dir, exist_ok=True)
+    if output_crops_dir:
+        os.makedirs(output_crops_dir, exist_ok=True)
 
     h_img, w_img = bgr_image.shape[:2]
     predictions = detect_bananas_in_frame(bgr_image)
@@ -560,11 +579,14 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
         cv2.putText(annotated_full, label, (x1 + 5, y1 - bl - 2),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (15, 23, 42), 2, cv2.LINE_AA)
 
-        # บันทึก crop ที่มี annotation
+        # แปลง crop ที่มี annotation เป็น Base64 Data URL
         annotated_crop = annotate_crop_image(cropped, stage_info, banana_counter, conf_pct)
-        ts_ms = int(time.time() * 1000) % 100000
-        crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
-        cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+        crop_image_url = crop_to_base64(annotated_crop)
+        if output_crops_dir:
+            ts_ms = int(time.time() * 1000) % 100000
+            crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
+            cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+            crop_image_url = f"/static/crops/{crop_filename}"
 
         detections.append({
             "id":          f"BN-{banana_counter:04d}",
@@ -581,7 +603,7 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
             },
             "bbox":        f"[{x1}, {y1}, {int(bw)}, {int(bh)}]",
             "box_coords":  {"x": x1, "y": y1, "w": int(bw), "h": int(bh)},
-            "image":       f"/static/crops/{crop_filename}",
+            "image":       crop_image_url,
         })
         banana_counter += 1
 
@@ -590,10 +612,13 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
         stage_key, stage_conf = classify_crop(bgr_image)
         stage_info  = STAGES_INFO.get(stage_key, STAGES_INFO["Ripe"])
         conf_pct    = round(stage_conf * 100, 1)
-        ts_ms = int(time.time() * 1000) % 100000
-        crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
         annotated_crop = annotate_crop_image(bgr_image, stage_info, banana_counter, conf_pct)
-        cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+        crop_image_url = crop_to_base64(annotated_crop)
+        if output_crops_dir:
+            ts_ms = int(time.time() * 1000) % 100000
+            crop_filename = f"crop_img_{banana_counter:04d}_{ts_ms}.jpg"
+            cv2.imwrite(os.path.join(output_crops_dir, crop_filename), annotated_crop)
+            crop_image_url = f"/static/crops/{crop_filename}"
         detections.append({
             "id":          f"BN-{banana_counter:04d}",
             "timestamp":   "image",
@@ -604,7 +629,7 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
             "roboflow": {"detected": False, "class": "none", "confidence": 0.0, "box": None},
             "bbox":        "[0, 0, 0, 0]",
             "box_coords":  {"x": 0, "y": 0, "w": w_img, "h": h_img},
-            "image":       f"/static/crops/{crop_filename}",
+            "image":       crop_image_url,
         })
 
     # แปลงภาพ annotated full เป็น base64 JPEG

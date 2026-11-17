@@ -112,7 +112,7 @@ def process_demo_frame():
     1. ส่งภาพเข้า Roboflow สำหรับ Object Detection & Bounding Box จริง
     2. Crop ภาพตาม Bounding Box จาก Roboflow
     3. ส่งเข้า MobileNetV2 สำหรับการจำแนกความสุก 4 ระดับ (Unripe, Ripe, Overripe, Rotten)
-    4. วาด Annotation และบันทึกภาพลง static/crops/
+    4. วาด Annotation และแปลงภาพ crop เป็น Base64 ใน Memory (Zero-disk)
     """
     data = request.get_json() or {}
     image_data = data.get("image")
@@ -139,7 +139,7 @@ def process_demo_frame():
             bgr_snapshot=bgr_frame,
             banana_counter=banana_id,
             conf_threshold=conf_threshold,
-            output_crops_dir=app.config["CROPS_FOLDER"],
+            output_crops_dir=None,  # Zero-disk: ส่ง Base64 ให้ Browser แคชใน Memory ตรงๆ
             timestamp_sec=timestamp_sec
         )
         
@@ -172,7 +172,7 @@ def process_video_batch():
         video_path=video_path,
         frame_interval=frame_interval,
         conf_threshold=conf_threshold,
-        output_crops_dir=app.config["CROPS_FOLDER"]
+        output_crops_dir=None  # Zero-disk: ส่ง Base64 ใน Memory
     )
     
     total_detected = 0
@@ -232,7 +232,7 @@ def process_video_stream():
             video_path=video_path,
             frame_interval=frame_interval,
             conf_threshold=conf_threshold,
-            output_crops_dir=app.config["CROPS_FOLDER"]
+            output_crops_dir=None  # Zero-disk: ส่ง Base64 ใน Memory
         )
         for event in generator:
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
@@ -315,7 +315,7 @@ def analyze_image():
         result = detector.analyze_image_full(
             bgr_image=bgr_image,
             conf_threshold=conf_threshold,
-            output_crops_dir=app.config["CROPS_FOLDER"],
+            output_crops_dir=None,  # Zero-disk: ส่ง Base64 ใน Memory
         )
         return jsonify({"success": True, **result})
     except Exception as e:

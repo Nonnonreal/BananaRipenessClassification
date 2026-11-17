@@ -287,7 +287,7 @@ curl -X POST http://localhost:7860/api/analyze-image \
 |--------|-------|
 | Architecture | MobileNetV2 (Transfer Learning) |
 | Input Size | 224 × 224 × 3 |
-| Output Classes | 4 (Unripe, Ripe, Overripe, Rotten) |
+| Output Classes | 4 (Fresh, Unripe, Ripe, Overripe) |
 | Model Size | 23.47 MB |
 | Format | Keras `.keras` |
 | Storage | Git LFS |
