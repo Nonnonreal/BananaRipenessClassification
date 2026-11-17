@@ -12,7 +12,7 @@ pinned: false
 
 ระบบวิเคราะห์ความสุกของกล้วยแบบ Real-time โดยใช้ Computer Vision แบบ 2 ขั้นตอน (Two-Stage AI Pipeline) ประกอบด้วย Object Detection ด้วย YOLOv8 และ Image Classification ด้วย MobileNetV2
 
-> **Live Demo:** [🤗 Hugging Face Spaces](https://huggingface.co/spaces/thananonny/banana-ripeness-ai)
+> **Live Demo:** [🤗 Hugging Face Spaces](https://huggingface.co/spaces/thananonny/BananaRipeness)
 
 ---
 
