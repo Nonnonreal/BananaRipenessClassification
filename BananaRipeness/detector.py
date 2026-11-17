@@ -99,8 +99,38 @@ def init_roboflow_client():
         return False
 
 
+MODEL_DOWNLOAD_URL = os.getenv(
+    "MODEL_DOWNLOAD_URL",
+    "https://huggingface.co/spaces/thananonny/BananaRipeness/resolve/main/models/MobileNetV2_banana_model.keras"
+)
+
+
+def ensure_model_file(target_path):
+    """
+    ตรวจสอบว่ามีไฟล์โมเดลจริงอยู่หรือไม่ ถ้าไม่มีหรือเป็น Git LFS Pointer (ขนาด <= 1000 bytes)
+    ให้ดาวน์โหลดไฟล์โมเดลจริง (24.6 MB) จาก CDN โดยอัตโนมัติ
+    """
+    if os.path.isfile(target_path) and os.path.getsize(target_path) > 1000:
+        return os.path.abspath(target_path)
+    
+    print(f"[Detector] ตรวจพบไฟล์โมเดลหายไป หรือเป็น Git LFS Pointer ({target_path})")
+    print(f"[Detector] ⬇️ กำลังดาวน์โหลดโมเดล MobileNetV2 (24.6 MB) อัตโนมัติ...")
+    import urllib.request
+    try:
+        os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+        req = urllib.request.Request(MODEL_DOWNLOAD_URL, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=90) as resp, open(target_path, "wb") as f:
+            f.write(resp.read())
+        size_mb = os.path.getsize(target_path) / (1024 * 1024)
+        print(f"✅ [Detector] ดาวน์โหลดโมเดลสำเร็จ ({size_mb:.2f} MB)")
+        return os.path.abspath(target_path)
+    except Exception as e:
+        print(f"⚠️ [Detector] ไม่สามารถดาวน์โหลดโมเดลอัตโนมัติได้: {e}")
+        return None
+
+
 def resolve_model_path(path_str):
-    """ค้นหาไฟล์โมเดล MobileNetV2 จาก path ต่างๆ"""
+    """ค้นหาไฟล์โมเดล MobileNetV2 จาก path ต่างๆ พร้อมระบบ Auto-Download"""
     candidates = [
         path_str,
         os.path.join(os.path.dirname(__file__), path_str),
@@ -112,6 +142,13 @@ def resolve_model_path(path_str):
     for c in candidates:
         if os.path.isfile(c) and os.path.getsize(c) > 1000:
             return os.path.abspath(c)
+            
+    # หากไม่พบไฟล์ที่มีขนาด > 1000 bytes ให้ดาวน์โหลดลงที่ตำแหน่งเป้าหมายหลัก
+    target = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models", "MobileNetV2_banana_model.keras"))
+    downloaded = ensure_model_file(target)
+    if downloaded:
+        return downloaded
+
     return None
 
 
