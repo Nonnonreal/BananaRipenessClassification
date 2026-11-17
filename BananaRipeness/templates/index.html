@@ -345,23 +345,39 @@
 
                     <!-- 4 Ripeness Stages Breakdown -->
                     <div class="space-y-3">
-                        <!-- Stage 1: Unripe (ดิบ) -->
+                        <!-- Stage 1: Fresh (สด) -->
                         <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
                             <div class="flex items-center justify-between text-sm mb-1.5">
                                 <div class="flex items-center gap-2 font-medium text-emerald-900">
                                     <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-                                    <span>ดิบ (Unripe - Green)</span>
+                                    <span>สด (Fresh - Green)</span>
                                 </div>
                                 <div class="font-mono font-bold text-emerald-700">
-                                    <span id="stat-unripe">0</span> <span id="pct-unripe" class="text-xs font-normal text-emerald-600">(0%)</span>
+                                    <span id="stat-fresh">0</span> <span id="pct-fresh" class="text-xs font-normal text-emerald-600">(0%)</span>
                                 </div>
                             </div>
                             <div class="w-full bg-emerald-200/60 h-2 rounded-full overflow-hidden">
-                                <div id="bar-unripe" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                                <div id="bar-fresh" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
                             </div>
                         </div>
 
-                        <!-- Stage 2: Ripe (สุกพอดี) -->
+                        <!-- Stage 2: Unripe (ดิบ) -->
+                        <div class="p-3 rounded-xl border border-teal-200 bg-teal-50/50">
+                            <div class="flex items-center justify-between text-sm mb-1.5">
+                                <div class="flex items-center gap-2 font-medium text-teal-900">
+                                    <span class="w-3 h-3 rounded-full bg-teal-500"></span>
+                                    <span>ดิบ (Unripe - Yellowish Green)</span>
+                                </div>
+                                <div class="font-mono font-bold text-teal-700">
+                                    <span id="stat-unripe">0</span> <span id="pct-unripe" class="text-xs font-normal text-teal-600">(0%)</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-teal-200/60 h-2 rounded-full overflow-hidden">
+                                <div id="bar-unripe" class="bg-teal-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stage 3: Ripe (สุกพอดี) -->
                         <div class="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
                             <div class="flex items-center justify-between text-sm mb-1.5">
                                 <div class="flex items-center gap-2 font-medium text-amber-900">
@@ -377,7 +393,7 @@
                             </div>
                         </div>
 
-                        <!-- Stage 3: Overripe (สุกงอม) -->
+                        <!-- Stage 4: Overripe (สุกงอม) -->
                         <div class="p-3 rounded-xl border border-orange-200 bg-orange-50/50">
                             <div class="flex items-center justify-between text-sm mb-1.5">
                                 <div class="flex items-center gap-2 font-medium text-orange-900">
@@ -390,22 +406,6 @@
                             </div>
                             <div class="w-full bg-orange-200/60 h-2 rounded-full overflow-hidden">
                                 <div id="bar-overripe" class="bg-orange-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
-                            </div>
-                        </div>
-
-                        <!-- Stage 4: Rotten (เน่าเสีย) -->
-                        <div class="p-3 rounded-xl border border-rose-200 bg-rose-50/50">
-                            <div class="flex items-center justify-between text-sm mb-1.5">
-                                <div class="flex items-center gap-2 font-medium text-rose-900">
-                                    <span class="w-3 h-3 rounded-full bg-rose-600"></span>
-                                    <span>เน่าเสีย (Rotten - Decayed)</span>
-                                </div>
-                                <div class="font-mono font-bold text-rose-700">
-                                    <span id="stat-rotten">0</span> <span id="pct-rotten" class="text-xs font-normal text-rose-600">(0%)</span>
-                                </div>
-                            </div>
-                            <div class="w-full bg-rose-200/60 h-2 rounded-full overflow-hidden">
-                                <div id="bar-rotten" class="bg-rose-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
@@ -467,10 +467,10 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <select id="stage-filter" onchange="renderOutputs()" class="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-amber-500">
                         <option value="ALL">ทุกสถานะความสุก (All Stages - 4 Classes)</option>
+                        <option value="Fresh">สด (Fresh)</option>
                         <option value="Unripe">ดิบ (Unripe)</option>
                         <option value="Ripe">สุกพอดี (Ripe)</option>
                         <option value="Overripe">สุกงอม (Overripe)</option>
-                        <option value="Rotten">เน่าเสีย (Rotten)</option>
                     </select>
 
                     <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-medium">
@@ -547,15 +547,24 @@
         let activeTab = 'gallery';
         let animationFrameId = null;
 
-        // Stage definitions with colors and Thai labels
+        // Stage definitions with colors and Thai labels (4 Classes: Fresh, Unripe, Ripe, Overripe)
         const STAGES = {
+            Fresh: {
+                key: 'Fresh',
+                labelTh: 'สด (Fresh)',
+                badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                hexColor: '#10b981',
+                bodyColor: '#22c55e',
+                tipColor: '#15803d',
+                spots: false
+            },
             Unripe: {
                 key: 'Unripe',
                 labelTh: 'ดิบ (Unripe)',
-                badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-                hexColor: '#10b981',
-                bodyColor: '#4ade80',
-                tipColor: '#15803d',
+                badgeClass: 'bg-teal-100 text-teal-800 border-teal-300',
+                hexColor: '#14b8a6',
+                bodyColor: '#84cc16',
+                tipColor: '#4d7c0f',
                 spots: false
             },
             Ripe: {
@@ -577,16 +586,21 @@
                 spots: true
             },
             Rotten: {
-                key: 'Rotten',
-                labelTh: 'เน่าเสีย (Rotten)',
+                key: 'Overripe',
+                labelTh: 'สุกงอม (Overripe)',
                 badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
                 hexColor: '#e11d48',
                 bodyColor: '#451a03',
                 tipColor: '#170601',
-                spots: true,
-                isRotten: true
+                spots: true
             }
         };
+        // Lowercase & compatibility aliases
+        STAGES.fresh = STAGES.Fresh;
+        STAGES.unripe = STAGES.Unripe;
+        STAGES.ripe = STAGES.Ripe;
+        STAGES.overripe = STAGES.Overripe;
+        STAGES.rotten = STAGES.Rotten;
 
         // --- Toast Notification Helper ---
         function showToast(message, type = 'info') {
@@ -818,11 +832,13 @@
 
         // --- Preload Real Banana Images for Conveyor Simulation ---
         const demoBananaImages = {
+            Fresh: new Image(),
             Unripe: new Image(),
             Ripe: new Image(),
             Overripe: new Image(),
             Rotten: new Image()
         };
+        demoBananaImages.Fresh.src = '/static/demo_bananas/unripe.png';
         demoBananaImages.Unripe.src = '/static/demo_bananas/unripe.png';
         demoBananaImages.Ripe.src = '/static/demo_bananas/ripe.png';
         demoBananaImages.Overripe.src = '/static/demo_bananas/overripe.png';
@@ -839,7 +855,7 @@
 
         class SimulatedBanana {
             constructor(canvasWidth, canvasHeight) {
-                const keys = ['Unripe', 'Ripe', 'Overripe', 'Rotten'];
+                const keys = ['Fresh', 'Unripe', 'Ripe', 'Overripe'];
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 this.visualKey = randomKey;
                 this.stage = STAGES[randomKey];
@@ -1149,35 +1165,50 @@
             }
         }
 
-        // --- Dashboard Stats & Output Rendering (4 Classes) ---
+        // --- Dashboard Stats & Output Rendering (4 Classes: Fresh, Unripe, Ripe, Overripe) ---
         function updateDashboardStats() {
             const total = detectionRecords.length;
-            const unripe = detectionRecords.filter(r => r.stageKey === 'Unripe').length;
-            const ripe = detectionRecords.filter(r => r.stageKey === 'Ripe').length;
-            const overripe = detectionRecords.filter(r => r.stageKey === 'Overripe').length;
-            const rotten = detectionRecords.filter(r => r.stageKey === 'Rotten').length;
+            const fresh = detectionRecords.filter(r => r.stageKey === 'Fresh' || r.stageKey === 'fresh').length;
+            const unripe = detectionRecords.filter(r => r.stageKey === 'Unripe' || r.stageKey === 'unripe').length;
+            const ripe = detectionRecords.filter(r => r.stageKey === 'Ripe' || r.stageKey === 'ripe').length;
+            const overripe = detectionRecords.filter(r => r.stageKey === 'Overripe' || r.stageKey === 'overripe' || r.stageKey === 'Rotten' || r.stageKey === 'rotten').length;
 
+            const pctFresh = total ? Math.round((fresh / total) * 100) : 0;
             const pctUnripe = total ? Math.round((unripe / total) * 100) : 0;
             const pctRipe = total ? Math.round((ripe / total) * 100) : 0;
             const pctOverripe = total ? Math.round((overripe / total) * 100) : 0;
-            const pctRotten = total ? Math.round((rotten / total) * 100) : 0;
 
             document.getElementById('stat-total').textContent = total;
-            document.getElementById('stat-unripe').textContent = unripe;
-            document.getElementById('pct-unripe').textContent = `(${pctUnripe}%)`;
-            document.getElementById('bar-unripe').style.width = `${pctUnripe}%`;
 
-            document.getElementById('stat-ripe').textContent = ripe;
-            document.getElementById('pct-ripe').textContent = `(${pctRipe}%)`;
-            document.getElementById('bar-ripe').style.width = `${pctRipe}%`;
+            if (document.getElementById('stat-fresh')) {
+                document.getElementById('stat-fresh').textContent = fresh;
+                document.getElementById('pct-fresh').textContent = `(${pctFresh}%)`;
+                document.getElementById('bar-fresh').style.width = `${pctFresh}%`;
+            }
 
-            document.getElementById('stat-overripe').textContent = overripe;
-            document.getElementById('pct-overripe').textContent = `(${pctOverripe}%)`;
-            document.getElementById('bar-overripe').style.width = `${pctOverripe}%`;
+            if (document.getElementById('stat-unripe')) {
+                document.getElementById('stat-unripe').textContent = unripe;
+                document.getElementById('pct-unripe').textContent = `(${pctUnripe}%)`;
+                document.getElementById('bar-unripe').style.width = `${pctUnripe}%`;
+            }
 
-            document.getElementById('stat-rotten').textContent = rotten;
-            document.getElementById('pct-rotten').textContent = `(${pctRotten}%)`;
-            document.getElementById('bar-rotten').style.width = `${pctRotten}%`;
+            if (document.getElementById('stat-ripe')) {
+                document.getElementById('stat-ripe').textContent = ripe;
+                document.getElementById('pct-ripe').textContent = `(${pctRipe}%)`;
+                document.getElementById('bar-ripe').style.width = `${pctRipe}%`;
+            }
+
+            if (document.getElementById('stat-overripe')) {
+                document.getElementById('stat-overripe').textContent = overripe;
+                document.getElementById('pct-overripe').textContent = `(${pctOverripe}%)`;
+                document.getElementById('bar-overripe').style.width = `${pctOverripe}%`;
+            }
+
+            if (document.getElementById('stat-rotten')) {
+                document.getElementById('stat-rotten').textContent = overripe;
+                document.getElementById('pct-rotten').textContent = `(${pctOverripe}%)`;
+                document.getElementById('bar-rotten').style.width = `${pctOverripe}%`;
+            }
         }
 
         function switchOutputTab(tab) {
@@ -1333,10 +1364,16 @@
         // IMAGE ANALYSIS MODE — functions
         // =====================================================================
         const STAGE_BADGE = {
-            Unripe:   { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300', dot: 'bg-emerald-500' },
+            Fresh:    { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300', dot: 'bg-emerald-500' },
+            fresh:    { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300', dot: 'bg-emerald-500' },
+            Unripe:   { bg: 'bg-teal-100',    text: 'text-teal-800',    border: 'border-teal-300',    dot: 'bg-teal-500'    },
+            unripe:   { bg: 'bg-teal-100',    text: 'text-teal-800',    border: 'border-teal-300',    dot: 'bg-teal-500'    },
             Ripe:     { bg: 'bg-amber-100',   text: 'text-amber-800',   border: 'border-amber-300',   dot: 'bg-amber-500'   },
+            ripe:     { bg: 'bg-amber-100',   text: 'text-amber-800',   border: 'border-amber-300',   dot: 'bg-amber-500'   },
             Overripe: { bg: 'bg-orange-100',  text: 'text-orange-800',  border: 'border-orange-300',  dot: 'bg-orange-500'  },
+            overripe: { bg: 'bg-orange-100',  text: 'text-orange-800',  border: 'border-orange-300',  dot: 'bg-orange-500'  },
             Rotten:   { bg: 'bg-rose-100',    text: 'text-rose-800',    border: 'border-rose-300',    dot: 'bg-rose-500'    },
+            rotten:   { bg: 'bg-rose-100',    text: 'text-rose-800',    border: 'border-rose-300',    dot: 'bg-rose-500'    },
         };
 
         let activeImageSource = null; // { type: 'demo', filename, url, label } or { type: 'file', file, url, label }

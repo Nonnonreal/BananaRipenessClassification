@@ -21,8 +21,8 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-# รายชื่อคลาสความสุก (4 คลาส)
-CLASSES_RIPENESS = ["Unripe (ดิบ)", "Ripe (สุก)", "Overripe (งอม)", "Rotten (เน่าเสีย)"]
+# รายชื่อคลาสความสุก (4 คลาส: Fresh, Unripe, Ripe, Overripe)
+CLASSES_RIPENESS = ["Fresh (สด)", "Unripe (ดิบ)", "Ripe (สุกพอดี)", "Overripe (สุกงอม)"]
 
 def process_video(video_path, frame_interval=10):
     cap = cv2.VideoCapture(video_path)

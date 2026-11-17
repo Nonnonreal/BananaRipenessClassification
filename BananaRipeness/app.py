@@ -181,23 +181,25 @@ def process_video_batch():
             detections.append(event["data"])
             total_detected += 1
             
-    # คำนวณสรุปสถิติ (4 คลาส)
-    unripe = sum(1 for d in detections if d["stageKey"] == "Unripe")
-    ripe = sum(1 for d in detections if d["stageKey"] == "Ripe")
-    overripe = sum(1 for d in detections if d["stageKey"] == "Overripe")
-    rotten = sum(1 for d in detections if d["stageKey"] == "Rotten")
+    # คำนวณสรุปสถิติ (4 คลาส: Fresh, Unripe, Ripe, Overripe)
+    fresh = sum(1 for d in detections if d["stageKey"] in ("Fresh", "fresh"))
+    unripe = sum(1 for d in detections if d["stageKey"] in ("Unripe", "unripe"))
+    ripe = sum(1 for d in detections if d["stageKey"] in ("Ripe", "ripe"))
+    overripe = sum(1 for d in detections if d["stageKey"] in ("Overripe", "overripe", "Rotten", "rotten"))
     
     total = len(detections)
     stats = {
         "total": total,
+        "fresh": fresh,
         "unripe": unripe,
         "ripe": ripe,
         "overripe": overripe,
-        "rotten": rotten,
+        "rotten": overripe,  # คงคีย์ไว้สำหรับ backward compatibility
+        "pct_fresh": round((fresh / total * 100), 1) if total else 0,
         "pct_unripe": round((unripe / total * 100), 1) if total else 0,
         "pct_ripe": round((ripe / total * 100), 1) if total else 0,
         "pct_overripe": round((overripe / total * 100), 1) if total else 0,
-        "pct_rotten": round((rotten / total * 100), 1) if total else 0
+        "pct_rotten": round((overripe / total * 100), 1) if total else 0
     }
     
     return jsonify({
@@ -243,10 +245,13 @@ def api_demo_images():
     """ส่งรายการภาพ Demo สำหรับทดลองใช้งาน (คัดเลือกตัวแทนแต่ละคลาสและภาพจริง)"""
     demo_dir = os.path.join(BASE_DIR, "static", "demo_bananas")
     priority_items = [
-        {"filename": "unripe.png", "label": "ดิบ (Unripe)", "badge": "bg-emerald-100 text-emerald-800"},
+        {"filename": "unripe.png", "label": "สด/ดิบ (Fresh)", "badge": "bg-emerald-100 text-emerald-800"},
         {"filename": "ripe.png", "label": "สุกพอดี (Ripe)", "badge": "bg-amber-100 text-amber-800"},
         {"filename": "overripe.png", "label": "สุกงอม (Overripe)", "badge": "bg-orange-100 text-orange-800"},
-        {"filename": "rotten.png", "label": "เน่าเสีย (Rotten)", "badge": "bg-rose-100 text-rose-800"},
+        {"filename": "rotten.png", "label": "สุกงอมมาก (Overripe)", "badge": "bg-rose-100 text-rose-800"},
+        {"filename": "rotton.png", "label": "สุกงอมมาก (Overripe)", "badge": "bg-rose-100 text-rose-800"},
+        {"filename": "banana_bunch.png", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
+        {"filename": "banana_brunch.png", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
         {"filename": "banana_bunch.jpg", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
     ]
     images = []

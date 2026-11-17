@@ -18,14 +18,21 @@ MODEL_PATH = os.getenv("MODEL_PATH", "../models/MobileNetV2_banana_model.keras")
 DEFAULT_FRAME_INTERVAL = int(os.getenv("DEFAULT_FRAME_INTERVAL", 10))
 DEFAULT_CONF_THRESHOLD = float(os.getenv("DEFAULT_CONF_THRESHOLD", 0.75))
 
-# รายละเอียด Stage และการจัดหมวดหมู่สี (4 คลาส)
+# รายละเอียด Stage และการจัดหมวดหมู่สี (4 คลาส: Fresh, Unripe, Ripe, Overripe)
 STAGES_INFO = {
-    "Unripe": {
-        "key": "Unripe",
-        "labelTh": "ดิบ (Unripe)",
+    "Fresh": {
+        "key": "Fresh",
+        "labelTh": "สด (Fresh)",
         "badgeClass": "bg-emerald-100 text-emerald-800 border-emerald-300",
         "hexColor": "#10b981",
         "bgrColor": (129, 185, 16)
+    },
+    "Unripe": {
+        "key": "Unripe",
+        "labelTh": "ดิบ (Unripe)",
+        "badgeClass": "bg-teal-100 text-teal-800 border-teal-300",
+        "hexColor": "#14b8a6",
+        "bgrColor": (166, 184, 20)
     },
     "Ripe": {
         "key": "Ripe",
@@ -40,18 +47,25 @@ STAGES_INFO = {
         "badgeClass": "bg-orange-100 text-orange-800 border-orange-300",
         "hexColor": "#ea580c",
         "bgrColor": (12, 88, 234)
-    },
-    "Rotten": {
-        "key": "Rotten",
-        "labelTh": "เน่าเสีย (Rotten)",
-        "badgeClass": "bg-rose-100 text-rose-800 border-rose-300",
-        "hexColor": "#e11d48",
-        "bgrColor": (72, 29, 225)
     }
 }
 
-# ลำดับ 4 คลาสตามโมเดล MobileNetV2 ที่เทรนไว้ (Class A -> D)
-CLASSES_RIPENESS = ["Unripe", "Ripe", "Overripe", "Rotten"]
+# เพิ่ม alias สำหรับตัวพิมพ์เล็ก และ Rotten เก่า เพื่อความเข้ากันได้
+STAGES_INFO["fresh"] = STAGES_INFO["Fresh"]
+STAGES_INFO["unripe"] = STAGES_INFO["Unripe"]
+STAGES_INFO["ripe"] = STAGES_INFO["Ripe"]
+STAGES_INFO["overripe"] = STAGES_INFO["Overripe"]
+STAGES_INFO["Rotten"] = {
+    "key": "Overripe",
+    "labelTh": "สุกงอม (Overripe)",
+    "badgeClass": "bg-rose-100 text-rose-800 border-rose-300",
+    "hexColor": "#e11d48",
+    "bgrColor": (72, 29, 225)
+}
+STAGES_INFO["rotten"] = STAGES_INFO["Rotten"]
+
+# ลำดับ 4 คลาสตามโมเดล MobileNetV2 ที่เทรนไว้ (Class A -> D: Fresh, Unripe, Ripe, Overripe)
+CLASSES_RIPENESS = ["Fresh", "Unripe", "Ripe", "Overripe"]
 
 # Global Objects
 roboflow_client = None
@@ -145,7 +159,7 @@ def init_classifier_model():
 def classify_crop(bgr_crop):
     """
     ส่งภาพ Crop เข้า MobileNetV2 เพื่อทำนายระดับความสุก 4 Stage
-    (Unripe, Ripe, Overripe, Rotten) พร้อมค่า Confidence
+    (Fresh, Unripe, Ripe, Overripe) พร้อมค่า Confidence
     """
     global classifier_model, classifier_type
     
@@ -172,7 +186,7 @@ def classify_crop(bgr_crop):
         confidence = float(preds[pred_idx])
         
         # แมป Class ID สู่ 4 Stages:
-        # Index 0: Class A (Unripe), 1: Class B (Ripe), 2: Class C (Overripe), 3: Class D (Rotten)
+        # Index 0: Class A (Fresh), 1: Class B (Unripe), 2: Class C (Ripe), 3: Class D (Overripe)
         stage_key = CLASSES_RIPENESS[pred_idx]
         return stage_key, confidence
 
@@ -279,7 +293,7 @@ def process_demo_banana(bgr_snapshot, banana_counter=1, conf_threshold=0.35, out
     ประมวลผลกล้วยในโหมดสายพานจำลอง (Demo):
     1. ส่งภาพเข้า Roboflow หา Bounding Box จริง
     2. ทำการ Crop ภาพตาม Bounding Box ของ Roboflow
-    3. ส่งภาพ Crop เข้าโมเดล MobileNetV2 จำแนก 4 ระดับความสุกจริง (Unripe, Ripe, Overripe, Rotten)
+    3. ส่งภาพ Crop เข้าโมเดล MobileNetV2 จำแนก 4 ระดับความสุกจริง (Fresh, Unripe, Ripe, Overripe)
     4. วาด Bounding Box & Annotation ลงบนภาพ Crop บันทึกลง static/crops/
     5. ส่งข้อมูลผลลัพธ์กลับไปยังหน้าบ้าน
     """
@@ -503,10 +517,16 @@ def analyze_image_full(bgr_image, conf_threshold=0.35, output_crops_dir=None, im
     banana_counter = image_counter_start
 
     STAGE_COLORS = {
-        "Unripe":   (129, 185, 16),
+        "Fresh":    (129, 185, 16),
+        "fresh":    (129, 185, 16),
+        "Unripe":   (166, 184, 20),
+        "unripe":   (166, 184, 20),
         "Ripe":     (11, 158, 245),
+        "ripe":     (11, 158, 245),
         "Overripe": (12, 88, 234),
+        "overripe": (12, 88, 234),
         "Rotten":   (72, 29, 225),
+        "rotten":   (72, 29, 225),
     }
 
     for pred in sorted(filtered, key=lambda p: p.get("confidence", 0), reverse=True):

@@ -42,10 +42,10 @@ pinned: false
 
 | ระดับ | สี Label | ความหมาย |
 |-------|----------|-----------|
-| 🟢 Unripe | เขียว | ยังดิบ ยังไม่สุก |
-| 🟡 Ripe | เหลือง | สุกพอดี เหมาะสำหรับจำหน่าย |
-| 🟠 Overripe | ส้ม | สุกเกิน เริ่มมีจุดด่าง |
-| 🔴 Rotten | แดง | เน่าเสีย ไม่เหมาะจำหน่าย |
+| 🟢 Fresh | เขียวสด | กล้วยสด/ดิบสด (Class A) |
+| 🟢 Unripe | เขียวอมเหลือง | ยังดิบ/ห่าม (Class B) |
+| 🟡 Ripe | เหลือง | สุกพอดี เหมาะสำหรับจำหน่าย (Class C) |
+| 🟠 Overripe | ส้ม | สุกงอม เริ่มมีจุดน้ำตาล (Class D) |
 
 ---
 
@@ -75,10 +75,10 @@ Input (Video Frame / Image)
 │  Input: 224×224 RGB [0, 255]    │
 │                                 │
 │  → 4-class Softmax output:      │
-│     0: Unripe                   │
-│     1: Ripe                     │
-│     2: Overripe                 │
-│     3: Rotten                   │
+│     0: Fresh (Class A)          │
+│     1: Unripe (Class B)         │
+│     2: Ripe (Class C)           │
+│     3: Overripe (Class D)       │
 └─────────────┬───────────────────┘
               │
               ▼
