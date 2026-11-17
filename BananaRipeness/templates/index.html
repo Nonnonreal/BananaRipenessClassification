@@ -553,46 +553,31 @@
                 key: 'Fresh',
                 labelTh: 'สด (Fresh)',
                 badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-                hexColor: '#10b981',
-                bodyColor: '#22c55e',
-                tipColor: '#15803d',
-                spots: false
+                hexColor: '#10b981'
             },
             Unripe: {
                 key: 'Unripe',
                 labelTh: 'ดิบ (Unripe)',
                 badgeClass: 'bg-teal-100 text-teal-800 border-teal-300',
-                hexColor: '#14b8a6',
-                bodyColor: '#84cc16',
-                tipColor: '#4d7c0f',
-                spots: false
+                hexColor: '#14b8a6'
             },
             Ripe: {
                 key: 'Ripe',
                 labelTh: 'สุกพอดี (Ripe)',
                 badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
-                hexColor: '#f59e0b',
-                bodyColor: '#facc15',
-                tipColor: '#854d0e',
-                spots: false
+                hexColor: '#f59e0b'
             },
             Overripe: {
                 key: 'Overripe',
                 labelTh: 'สุกงอม (Overripe)',
                 badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
-                hexColor: '#ea580c',
-                bodyColor: '#eab308',
-                tipColor: '#451a03',
-                spots: true
+                hexColor: '#ea580c'
             },
             Rotten: {
                 key: 'Overripe',
                 labelTh: 'สุกงอม (Overripe)',
                 badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
-                hexColor: '#e11d48',
-                bodyColor: '#451a03',
-                tipColor: '#170601',
-                spots: true
+                hexColor: '#e11d48'
             }
         };
         // Lowercase & compatibility aliases
@@ -601,6 +586,7 @@
         STAGES.ripe = STAGES.Ripe;
         STAGES.overripe = STAGES.Overripe;
         STAGES.rotten = STAGES.Rotten;
+        STAGES.Bunch = STAGES.Ripe;
 
         // --- Toast Notification Helper ---
         function showToast(message, type = 'info') {
@@ -830,19 +816,21 @@
         let simulatedBananas = [];
         let lastSpawnTime = 0;
 
-        // --- Preload Real Banana Images for Conveyor Simulation ---
+        // --- Preload Real Banana Images from static/demo_bananas for Conveyor Simulation ---
         const demoBananaImages = {
             Fresh: new Image(),
             Unripe: new Image(),
             Ripe: new Image(),
             Overripe: new Image(),
-            Rotten: new Image()
+            Rotten: new Image(),
+            Bunch: new Image()
         };
-        demoBananaImages.Fresh.src = '/static/demo_bananas/unripe.png';
-        demoBananaImages.Unripe.src = '/static/demo_bananas/unripe.png';
+        demoBananaImages.Fresh.src = '/static/demo_bananas/fresh.png';
+        demoBananaImages.Unripe.src = '/static/demo_bananas/fresh.png';
         demoBananaImages.Ripe.src = '/static/demo_bananas/ripe.png';
         demoBananaImages.Overripe.src = '/static/demo_bananas/overripe.png';
         demoBananaImages.Rotten.src = '/static/demo_bananas/rotten.png';
+        demoBananaImages.Bunch.src = '/static/demo_bananas/banana_brunch.png';
 
         function resizeCanvas() {
             if (canvas && canvas.parentElement) {
@@ -855,10 +843,11 @@
 
         class SimulatedBanana {
             constructor(canvasWidth, canvasHeight) {
-                const keys = ['Fresh', 'Unripe', 'Ripe', 'Overripe'];
+                // สุ่มเลือกรูปภาพกล้วยจริงจาก demo_bananas เท่านั้น
+                const keys = ['Fresh', 'Ripe', 'Overripe', 'Rotten', 'Bunch'];
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 this.visualKey = randomKey;
-                this.stage = STAGES[randomKey];
+                this.stage = STAGES[randomKey] || STAGES.Ripe;
                 this.id = ++bananaCounter;
                 this.confidence = 0.85;
                 this.w = Math.max(115, canvasWidth * 0.17);
@@ -884,22 +873,10 @@
                 targetCtx.translate(cx, cy);
                 targetCtx.rotate(this.angle);
 
-                // 1. วาดด้วยรูปกล้วยจริง (Real Banana Photo)
+                // แสดงผลเฉพาะรูปภาพกล้วยจริงจาก static/demo_bananas เท่านั้น (ห้ามสร้างรูปกล้วยขึ้นมาเอง)
                 const realImg = demoBananaImages[this.visualKey] || demoBananaImages[this.stage.key];
                 if (realImg && realImg.complete && realImg.naturalWidth > 0) {
                     targetCtx.drawImage(realImg, -this.w / 2, -this.h / 2, this.w, this.h);
-                } else {
-                    // Fallback วาดทรงโค้งหากรูปกำลังดาวน์โหลด
-                    targetCtx.beginPath();
-                    targetCtx.moveTo(-this.w * 0.42, -this.h * 0.15);
-                    targetCtx.quadraticCurveTo(0, this.h * 0.48, this.w * 0.42, -this.h * 0.15);
-                    targetCtx.quadraticCurveTo(0, this.h * 0.12, -this.w * 0.42, -this.h * 0.15);
-                    targetCtx.closePath();
-                    targetCtx.fillStyle = this.stage.bodyColor;
-                    targetCtx.fill();
-                    targetCtx.lineWidth = 2;
-                    targetCtx.strokeStyle = this.stage.tipColor;
-                    targetCtx.stroke();
                 }
 
                 targetCtx.restore();

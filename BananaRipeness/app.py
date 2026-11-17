@@ -242,23 +242,22 @@ def process_video_stream():
 
 @app.route("/api/demo-images")
 def api_demo_images():
-    """ส่งรายการภาพ Demo สำหรับทดลองใช้งาน (คัดเลือกตัวแทนแต่ละคลาสและภาพจริง)"""
+    """ส่งรายการภาพ Demo สำหรับทดลองใช้งาน (ไม่ซ้ำซ้อน และอิงตามไฟล์จริงใน static/demo_bananas)"""
     demo_dir = os.path.join(BASE_DIR, "static", "demo_bananas")
     priority_items = [
-        {"filename": "unripe.png", "label": "สด/ดิบ (Fresh)", "badge": "bg-emerald-100 text-emerald-800"},
+        {"filename": "fresh.png", "label": "สด (Fresh)", "badge": "bg-emerald-100 text-emerald-800"},
         {"filename": "ripe.png", "label": "สุกพอดี (Ripe)", "badge": "bg-amber-100 text-amber-800"},
         {"filename": "overripe.png", "label": "สุกงอม (Overripe)", "badge": "bg-orange-100 text-orange-800"},
         {"filename": "rotten.png", "label": "สุกงอมมาก (Overripe)", "badge": "bg-rose-100 text-rose-800"},
-        {"filename": "rotton.png", "label": "สุกงอมมาก (Overripe)", "badge": "bg-rose-100 text-rose-800"},
-        {"filename": "banana_bunch.png", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
         {"filename": "banana_brunch.png", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
-        {"filename": "banana_bunch.jpg", "label": "ภาพหวีกล้วยจริง (Multi)", "badge": "bg-sky-100 text-sky-800"},
     ]
     images = []
+    seen_files = set()
     if os.path.isdir(demo_dir):
         for item in priority_items:
             fpath = os.path.join(demo_dir, item["filename"])
-            if os.path.isfile(fpath):
+            if os.path.isfile(fpath) and item["filename"] not in seen_files:
+                seen_files.add(item["filename"])
                 images.append({
                     "filename": item["filename"],
                     "url": f"/static/demo_bananas/{item['filename']}",
